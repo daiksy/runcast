@@ -29,37 +29,37 @@ go build -o weather-cli
 ./weather-cli -city osaka -days 3
 
 # 🏃‍♂️ 東京のランニング情報を取得
-./weather-cli -city tokyo --running
+./weather-cli -city tokyo -running
 
 # 🏃‍♂️ 札幌の3日間ランニング予報を取得
-./weather-cli -city sapporo --running -days 3
+./weather-cli -city sapporo -running -days 3
 
 # ⏰ 東京の早朝時間帯の天気を取得
-./weather-cli -city tokyo --time morning
+./weather-cli -city tokyo -time morning
 
 # ⏰ 大阪の夕方時間帯のランニング情報を取得
-./weather-cli -city osaka --time evening --running
+./weather-cli -city osaka -time evening -running
 
 # 📅 明日の東京の天気を取得
-./weather-cli -city tokyo --date tomorrow
+./weather-cli -city tokyo -date tomorrow
 
 # 📅 明後日の札幌の早朝ランニング情報を取得
-./weather-cli -city sapporo --date day-after-tomorrow --time morning --running
+./weather-cli -city sapporo -date day-after-tomorrow -time morning -running
 
 # 🏃‍♂️ 距離別推奨: フルマラソン用の天気評価
-./weather-cli -city tokyo --distance full
+./weather-cli -city tokyo -distance full
 
 # 🏃‍♂️ 距離別推奨: 10km用の明日の天気評価
-./weather-cli -city osaka --distance 10k --date tomorrow
+./weather-cli -city osaka -distance 10k -date tomorrow
 ```
 
 ### オプション
 
 - `-city`: 都市名を指定（デフォルト: Tokyo）
 - `-days`: 予報日数を指定（1-7日、0は現在の天気のみ、デフォルト: 0）
-- `--running`: 🏃‍♂️ ランニング向け情報を表示（コンディション評価、服装推奨、注意事項）
-- `--time`: ⏰ 時間帯を指定（morning=早朝5-9時, noon=昼11-15時, evening=夕方17-19時, night=夜21-23時）
-- `--date`: 📅 日付を指定（today=今日, tomorrow=明日, day-after-tomorrow=明後日）
+- `-running`: 🏃‍♂️ ランニング向け情報を表示（コンディション評価、服装推奨、注意事項）
+- `-time`: ⏰ 時間帯を指定（morning=早朝5-9時, noon=昼11-15時, evening=夕方17-19時, night=夜21-23時）
+- `-date`: 📅 日付を指定（today=今日, tomorrow=明日, day-after-tomorrow=明後日）
 - `-distance`: 🏃‍♂️ 目標距離を指定（5k, 10k, half, full）※自動的にランニングモードが有効化
 
 ### 対応都市
