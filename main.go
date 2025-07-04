@@ -16,10 +16,14 @@ const (
 
 type WeatherData struct {
 	Current struct {
-		Temperature float64 `json:"temperature_2m"`
-		Humidity    int     `json:"relative_humidity_2m"`
-		WindSpeed   float64 `json:"wind_speed_10m"`
-		WeatherCode int     `json:"weather_code"`
+		Temperature        float64 `json:"temperature_2m"`
+		ApparentTemp       float64 `json:"apparent_temperature"`
+		Humidity           int     `json:"relative_humidity_2m"`
+		WindSpeed          float64 `json:"wind_speed_10m"`
+		WindDirection      float64 `json:"wind_direction_10m"`
+		WeatherCode        int     `json:"weather_code"`
+		Precipitation      float64 `json:"precipitation"`
+		Dewpoint           float64 `json:"dewpoint_2m"`
 	} `json:"current"`
 	Daily struct {
 		Time           []string  `json:"time"`
@@ -27,13 +31,17 @@ type WeatherData struct {
 		TemperatureMin []float64 `json:"temperature_2m_min"`
 		WeatherCode    []int     `json:"weather_code"`
 		WindSpeedMax   []float64 `json:"wind_speed_10m_max"`
+		PrecipitationSum []float64 `json:"precipitation_sum"`
 	} `json:"daily"`
 	Hourly struct {
-		Time        []string  `json:"time"`
-		Temperature []float64 `json:"temperature_2m"`
-		Humidity    []int     `json:"relative_humidity_2m"`
-		WindSpeed   []float64 `json:"wind_speed_10m"`
-		WeatherCode []int     `json:"weather_code"`
+		Time           []string  `json:"time"`
+		Temperature    []float64 `json:"temperature_2m"`
+		ApparentTemp   []float64 `json:"apparent_temperature"`
+		Humidity       []int     `json:"relative_humidity_2m"`
+		WindSpeed      []float64 `json:"wind_speed_10m"`
+		WindDirection  []float64 `json:"wind_direction_10m"`
+		WeatherCode    []int     `json:"weather_code"`
+		Precipitation  []float64 `json:"precipitation"`
 	} `json:"hourly"`
 }
 
@@ -46,9 +54,11 @@ type CityCoordinate struct {
 func main() {
 	var city string
 	var days int
+	var runningMode bool
 	
 	flag.StringVar(&city, "city", "Tokyo", "都市名を指定")
 	flag.IntVar(&days, "days", 0, "予報日数を指定（1-7日、0は現在の天気のみ）")
+	flag.BoolVar(&runningMode, "running", false, "ランニング向け情報を表示")
 	flag.Parse()
 
 	if city == "" {
@@ -73,10 +83,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	if days == 0 {
-		displayCurrentWeather(weather, coord.Name)
+	if runningMode {
+		if days == 0 {
+			displayRunningWeather(weather, coord.Name)
+		} else {
+			displayRunningForecast(weather, coord.Name, days)
+		}
 	} else {
-		displayForecastWeather(weather, coord.Name, days)
+		if days == 0 {
+			displayCurrentWeather(weather, coord.Name)
+		} else {
+			displayForecastWeather(weather, coord.Name, days)
+		}
 	}
 }
 
@@ -108,18 +126,26 @@ func getWeather(lat, lon float64, days int) (*WeatherData, error) {
 	}
 	
 	var url string
+	currentParams := "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation,dewpoint_2m"
+	dailyParams := "temperature_2m_max,temperature_2m_min,weather_code,wind_speed_10m_max,precipitation_sum"
+	hourlyParams := "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation"
+	
 	if days == 0 {
 		// 現在の天気のみ
-		url = fmt.Sprintf("%s?latitude=%s&longitude=%s&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=Asia/Tokyo", 
-			apiURL, 
-			strconv.FormatFloat(lat, 'f', 4, 64), 
-			strconv.FormatFloat(lon, 'f', 4, 64))
-	} else {
-		// 予報データ
-		url = fmt.Sprintf("%s?latitude=%s&longitude=%s&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,wind_speed_10m_max&timezone=Asia/Tokyo&forecast_days=%d", 
+		url = fmt.Sprintf("%s?latitude=%s&longitude=%s&current=%s&timezone=Asia/Tokyo", 
 			apiURL, 
 			strconv.FormatFloat(lat, 'f', 4, 64), 
 			strconv.FormatFloat(lon, 'f', 4, 64),
+			currentParams)
+	} else {
+		// 予報データ
+		url = fmt.Sprintf("%s?latitude=%s&longitude=%s&current=%s&daily=%s&hourly=%s&timezone=Asia/Tokyo&forecast_days=%d", 
+			apiURL, 
+			strconv.FormatFloat(lat, 'f', 4, 64), 
+			strconv.FormatFloat(lon, 'f', 4, 64),
+			currentParams,
+			dailyParams,
+			hourlyParams,
 			forecastDays)
 	}
 	
@@ -195,6 +221,219 @@ func formatDate(dateStr string) string {
 		return fmt.Sprintf("%s月%s日", month, day)
 	}
 	return dateStr
+}
+
+// Running condition assessment
+type RunningCondition struct {
+	Score       int    // 0-100 score
+	Level       string // Excellent, Good, Fair, Poor, Dangerous
+	Recommendation string
+	Clothing    []string
+	Warnings    []string
+}
+
+func assessRunningCondition(temp, apparentTemp, humidity float64, windSpeed, precipitation float64, weatherCode int) RunningCondition {
+	condition := RunningCondition{
+		Clothing: []string{},
+		Warnings: []string{},
+	}
+	
+	score := 100
+	
+	// Temperature assessment
+	if apparentTemp >= 30 {
+		score -= 30
+		condition.Warnings = append(condition.Warnings, "⚠️  熱中症注意: 体感温度が高すぎます")
+		condition.Clothing = append(condition.Clothing, "薄手の半袖", "帽子必須", "サングラス")
+	} else if apparentTemp >= 25 {
+		score -= 10
+		condition.Clothing = append(condition.Clothing, "半袖", "帽子推奨")
+	} else if apparentTemp >= 15 {
+		// Ideal temperature
+		condition.Clothing = append(condition.Clothing, "半袖または薄手の長袖")
+	} else if apparentTemp >= 5 {
+		score -= 10
+		condition.Clothing = append(condition.Clothing, "長袖", "薄手のジャケット")
+	} else {
+		score -= 20
+		condition.Clothing = append(condition.Clothing, "防寒着", "手袋", "ニット帽")
+		condition.Warnings = append(condition.Warnings, "❄️  寒さ注意: 十分な防寒対策を")
+	}
+	
+	// Humidity assessment
+	if humidity >= 80 {
+		score -= 15
+		condition.Warnings = append(condition.Warnings, "💧 高湿度: 汗が乾きにくい状態です")
+	} else if humidity <= 30 {
+		score -= 5
+		condition.Warnings = append(condition.Warnings, "🏜️  低湿度: 水分補給をこまめに")
+	}
+	
+	// Wind assessment
+	if windSpeed >= 10 {
+		score -= 15
+		condition.Warnings = append(condition.Warnings, "💨 強風注意")
+	} else if windSpeed >= 5 {
+		score -= 5
+	}
+	
+	// Precipitation assessment
+	if precipitation > 0 {
+		score -= 25
+		condition.Warnings = append(condition.Warnings, "🌧️  降水中: 滑りやすい路面に注意")
+	}
+	
+	// Weather code assessment
+	if weatherCode >= 95 { // Thunderstorm
+		score -= 50
+		condition.Warnings = append(condition.Warnings, "⛈️  雷雨: ランニング中止を強く推奨")
+	} else if weatherCode >= 80 { // Heavy rain
+		score -= 30
+	} else if weatherCode >= 61 { // Rain
+		score -= 20
+	}
+	
+	condition.Score = max(0, score)
+	
+	// Determine level and recommendation
+	if condition.Score >= 80 {
+		condition.Level = "最高"
+		condition.Recommendation = "ランニングに最適な天候です！"
+	} else if condition.Score >= 60 {
+		condition.Level = "良好"
+		condition.Recommendation = "ランニングに適した天候です"
+	} else if condition.Score >= 40 {
+		condition.Level = "普通"
+		condition.Recommendation = "注意しながらランニング可能です"
+	} else if condition.Score >= 20 {
+		condition.Level = "注意"
+		condition.Recommendation = "ランニングは控えめに、安全第一で"
+	} else {
+		condition.Level = "危険"
+		condition.Recommendation = "ランニング中止を推奨します"
+	}
+	
+	return condition
+}
+
+func getWindDirection(degrees float64) string {
+	directions := []string{"北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東", "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西"}
+	index := int((degrees + 11.25) / 22.5) % 16
+	return directions[index]
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func displayRunningWeather(weather *WeatherData, cityName string) {
+	fmt.Printf("🏃‍♂️ %s のランニング情報\n", cityName)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	condition := assessRunningCondition(
+		weather.Current.Temperature,
+		weather.Current.ApparentTemp,
+		float64(weather.Current.Humidity),
+		weather.Current.WindSpeed,
+		weather.Current.Precipitation,
+		weather.Current.WeatherCode,
+	)
+	
+	// Running condition display
+	fmt.Printf("🏆 ランニング指数: %d/100 (%s)\n", condition.Score, condition.Level)
+	fmt.Printf("💡 %s\n", condition.Recommendation)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	// Detailed weather info
+	fmt.Printf("🌡️  気温: %.1f°C (体感: %.1f°C)\n", weather.Current.Temperature, weather.Current.ApparentTemp)
+	fmt.Printf("💧 湿度: %d%%\n", weather.Current.Humidity)
+	fmt.Printf("🌬️  風: %s %.1f m/s\n", getWindDirection(weather.Current.WindDirection), weather.Current.WindSpeed)
+	fmt.Printf("☁️  天気: %s\n", getWeatherDescription(weather.Current.WeatherCode))
+	if weather.Current.Precipitation > 0 {
+		fmt.Printf("🌧️  降水量: %.1f mm/h\n", weather.Current.Precipitation)
+	}
+	
+	// Clothing recommendations
+	if len(condition.Clothing) > 0 {
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		fmt.Printf("👕 推奨ウェア:\n")
+		for _, item := range condition.Clothing {
+			fmt.Printf("   • %s\n", item)
+		}
+	}
+	
+	// Warnings
+	if len(condition.Warnings) > 0 {
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		fmt.Printf("⚠️  注意事項:\n")
+		for _, warning := range condition.Warnings {
+			fmt.Printf("   %s\n", warning)
+		}
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func displayRunningForecast(weather *WeatherData, cityName string, days int) {
+	fmt.Printf("🏃‍♂️ %s の%d日間ランニング予報\n", cityName, days)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	// Current condition
+	currentCondition := assessRunningCondition(
+		weather.Current.Temperature,
+		weather.Current.ApparentTemp,
+		float64(weather.Current.Humidity),
+		weather.Current.WindSpeed,
+		weather.Current.Precipitation,
+		weather.Current.WeatherCode,
+	)
+	fmt.Printf("📅 現在: %.1f°C | %s | 指数: %d/100\n", weather.Current.Temperature, getWeatherDescription(weather.Current.WeatherCode), currentCondition.Score)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	// Daily forecast with running assessment
+	for i := 0; i < len(weather.Daily.Time) && i < days; i++ {
+		date := weather.Daily.Time[i]
+		maxTemp := weather.Daily.TemperatureMax[i]
+		minTemp := weather.Daily.TemperatureMin[i]
+		weatherCode := weather.Daily.WeatherCode[i]
+		maxWind := weather.Daily.WindSpeedMax[i]
+		precipitation := weather.Daily.PrecipitationSum[i]
+		
+		// Estimate daily running condition (using average temperature)
+		avgTemp := (maxTemp + minTemp) / 2
+		dailyCondition := assessRunningCondition(avgTemp, avgTemp, 60, maxWind, precipitation, weatherCode)
+		
+		fmt.Printf("📅 %s\n", formatDate(date))
+		fmt.Printf("   🌡️  %s%.1f°C〜%.1f°C\n", getRunningTempIcon(avgTemp), minTemp, maxTemp)
+		fmt.Printf("   🏆 ランニング指数: %d/100 (%s)\n", dailyCondition.Score, dailyCondition.Level)
+		fmt.Printf("   ☁️  %s\n", getWeatherDescription(weatherCode))
+		if precipitation > 0 {
+			fmt.Printf("   🌧️  降水量: %.1f mm\n", precipitation)
+		}
+		
+		if i < len(weather.Daily.Time)-1 && i < days-1 {
+			fmt.Printf("   ────────────────────────────\n")
+		}
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func getRunningTempIcon(temp float64) string {
+	if temp >= 30 {
+		return "🔥 "
+	} else if temp >= 25 {
+		return "🌡️  "
+	} else if temp >= 15 {
+		return "👌 "
+	} else if temp >= 5 {
+		return "🧥 "
+	} else {
+		return "❄️  "
+	}
 }
 
 func getWeatherDescription(code int) string {
