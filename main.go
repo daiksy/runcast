@@ -70,18 +70,31 @@ type TimePeriod struct {
 	EndHour     int
 }
 
+type DistanceCategory struct {
+	Name        string
+	DisplayName string
+	MinKm       float64
+	MaxKm       float64
+	TempPenalty int // Additional penalty for longer distances
+	HumidityPenalty int
+	WindPenalty int
+	Description string
+}
+
 func main() {
 	var city string
 	var days int
 	var runningMode bool
 	var timeOfDay string
 	var dateSpec string
+	var distance string
 	
 	flag.StringVar(&city, "city", "Tokyo", "都市名を指定")
 	flag.IntVar(&days, "days", 0, "予報日数を指定（1-7日、0は現在の天気のみ）")
 	flag.BoolVar(&runningMode, "running", false, "ランニング向け情報を表示")
 	flag.StringVar(&timeOfDay, "time", "", "時間帯を指定（morning=早朝, noon=昼, evening=夕方, night=夜）")
 	flag.StringVar(&dateSpec, "date", "", "日付を指定（today=今日, tomorrow=明日, day-after-tomorrow=明後日）")
+	flag.StringVar(&distance, "distance", "", "目標距離を指定（5k, 10k, half, full）")
 	flag.Parse()
 
 	if city == "" {
@@ -146,6 +159,29 @@ func main() {
 			days = 1
 		}
 	}
+	
+	// Validate distance
+	var distanceCategory *DistanceCategory = nil
+	if distance != "" {
+		validDistances := []string{"5k", "10k", "half", "full"}
+		valid := false
+		for _, validDistance := range validDistances {
+			if distance == validDistance {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			fmt.Println("距離は 5k, 10k, half, full のいずれかを指定してください")
+			os.Exit(1)
+		}
+		
+		// Distance specification implies running mode
+		runningMode = true
+		
+		// Get distance category
+		distanceCategory = getDistanceCategory(distance)
+	}
 
 	coord, err := getCityCoordinate(city)
 	if err != nil {
@@ -185,7 +221,7 @@ func main() {
 		}
 	} else if runningMode {
 		if days == 0 {
-			displayRunningWeather(weather, coord.Name)
+			displayRunningWeatherWithDistance(weather, coord.Name, distanceCategory)
 		} else {
 			displayRunningForecast(weather, coord.Name, days)
 		}
@@ -1031,4 +1067,240 @@ func getDateDisplayName(dateSpec string) string {
 	default:
 		return ""
 	}
+}
+
+func getDistanceCategories() map[string]DistanceCategory {
+	return map[string]DistanceCategory{
+		"5k": {
+			Name:        "5k",
+			DisplayName: "5キロ",
+			MinKm:       3.0,
+			MaxKm:       7.0,
+			TempPenalty: 0,
+			HumidityPenalty: 0,
+			WindPenalty: 0,
+			Description: "短距離ランニング - 比較的軽い負荷",
+		},
+		"10k": {
+			Name:        "10k",
+			DisplayName: "10キロ",
+			MinKm:       8.0,
+			MaxKm:       12.0,
+			TempPenalty: 5,
+			HumidityPenalty: 5,
+			WindPenalty: 3,
+			Description: "中距離ランニング - 中程度の負荷",
+		},
+		"half": {
+			Name:        "half",
+			DisplayName: "ハーフマラソン",
+			MinKm:       19.0,
+			MaxKm:       23.0,
+			TempPenalty: 10,
+			HumidityPenalty: 10,
+			WindPenalty: 5,
+			Description: "長距離ランニング - 高い負荷",
+		},
+		"full": {
+			Name:        "full",
+			DisplayName: "フルマラソン",
+			MinKm:       40.0,
+			MaxKm:       44.0,
+			TempPenalty: 20,
+			HumidityPenalty: 15,
+			WindPenalty: 10,
+			Description: "超長距離ランニング - 非常に高い負荷",
+		},
+	}
+}
+
+func getDistanceCategory(distance string) *DistanceCategory {
+	categories := getDistanceCategories()
+	if category, exists := categories[distance]; exists {
+		return &category
+	}
+	return nil
+}
+
+func assessDistanceBasedRunningCondition(temp, apparentTemp, humidity float64, windSpeed, precipitation float64, weatherCode int, distanceCategory *DistanceCategory) RunningCondition {
+	// Start with base assessment
+	condition := assessRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode)
+	
+	// Apply distance-specific penalties
+	if distanceCategory != nil {
+		// Temperature penalty (more severe for longer distances)
+		if apparentTemp >= 30 {
+			condition.Score -= distanceCategory.TempPenalty
+		} else if apparentTemp >= 25 {
+			condition.Score -= distanceCategory.TempPenalty / 2
+		}
+		
+		// Humidity penalty
+		if humidity >= 80 {
+			condition.Score -= distanceCategory.HumidityPenalty
+		} else if humidity >= 70 {
+			condition.Score -= distanceCategory.HumidityPenalty / 2
+		}
+		
+		// Wind penalty
+		if windSpeed >= 8 {
+			condition.Score -= distanceCategory.WindPenalty
+		} else if windSpeed >= 5 {
+			condition.Score -= distanceCategory.WindPenalty / 2
+		}
+		
+		// Ensure score doesn't go below 0
+		condition.Score = max(0, condition.Score)
+		
+		// Update recommendations based on distance and new score
+		hasWarnings := len(condition.Warnings) > 0
+		hasSevereWarnings := false
+		
+		// Check for severe warnings
+		for _, warning := range condition.Warnings {
+			if strings.Contains(warning, "熱中症注意") || 
+			   strings.Contains(warning, "雷雨") || 
+			   strings.Contains(warning, "強風注意") {
+				hasSevereWarnings = true
+				break
+			}
+		}
+		
+		// Distance-specific recommendations
+		if hasSevereWarnings {
+			if condition.Score >= 60 {
+				condition.Level = "注意"
+				condition.Recommendation = fmt.Sprintf("%s実行時は警告事項を十分考慮してください", distanceCategory.DisplayName)
+			} else if condition.Score >= 40 {
+				condition.Level = "注意"
+				condition.Recommendation = fmt.Sprintf("%s実行は控えめに、短縮も検討してください", distanceCategory.DisplayName)
+			} else {
+				condition.Level = "危険"
+				condition.Recommendation = fmt.Sprintf("%s実行中止を強く推奨します", distanceCategory.DisplayName)
+			}
+		} else if hasWarnings {
+			if condition.Score >= 80 {
+				condition.Level = "良好"
+				condition.Recommendation = fmt.Sprintf("%s実行可能ですが、注意事項を確認してください", distanceCategory.DisplayName)
+			} else if condition.Score >= 60 {
+				condition.Level = "良好"
+				condition.Recommendation = fmt.Sprintf("%s実行前に注意事項を十分確認してください", distanceCategory.DisplayName)
+			} else if condition.Score >= 40 {
+				condition.Level = "普通"
+				condition.Recommendation = fmt.Sprintf("%s実行は慎重に、体調と相談して判断してください", distanceCategory.DisplayName)
+			} else {
+				condition.Level = "注意"
+				condition.Recommendation = fmt.Sprintf("%s実行は控えめに、または距離短縮を検討してください", distanceCategory.DisplayName)
+			}
+		} else {
+			if condition.Score >= 80 {
+				condition.Level = "最高"
+				condition.Recommendation = fmt.Sprintf("%s実行に最適な天候です！", distanceCategory.DisplayName)
+			} else if condition.Score >= 60 {
+				condition.Level = "良好"
+				condition.Recommendation = fmt.Sprintf("%s実行に適した天候です", distanceCategory.DisplayName)
+			} else if condition.Score >= 40 {
+				condition.Level = "普通"
+				condition.Recommendation = fmt.Sprintf("%s実行可能ですが、ペース調整を心がけてください", distanceCategory.DisplayName)
+			} else if condition.Score >= 20 {
+				condition.Level = "注意"
+				condition.Recommendation = fmt.Sprintf("%s実行は控えめに、または距離短縮を検討してください", distanceCategory.DisplayName)
+			} else {
+				condition.Level = "危険"
+				condition.Recommendation = fmt.Sprintf("%s実行中止を推奨します", distanceCategory.DisplayName)
+			}
+		}
+		
+		// Add distance-specific clothing recommendations
+		if distanceCategory.Name == "half" || distanceCategory.Name == "full" {
+			if apparentTemp >= 20 {
+				condition.Clothing = append(condition.Clothing, "水分補給用品必須", "エネルギー補給食")
+			}
+			if apparentTemp >= 25 {
+				condition.Clothing = append(condition.Clothing, "冷却タオル", "塩分補給タブレット")
+			}
+		}
+		
+		// Add distance-specific warnings
+		if distanceCategory.Name == "full" && apparentTemp >= 28 {
+			condition.Warnings = append(condition.Warnings, "🏃‍♂️ フルマラソン警告: 高温下での長時間運動は危険です")
+		}
+		if (distanceCategory.Name == "half" || distanceCategory.Name == "full") && humidity >= 85 {
+			condition.Warnings = append(condition.Warnings, "💦 長距離警告: 高湿度により脱水リスクが高まります")
+		}
+	}
+	
+	return condition
+}
+
+func displayRunningWeatherWithDistance(weather *WeatherData, cityName string, distanceCategory *DistanceCategory) {
+	var condition RunningCondition
+	var titleSuffix string
+	
+	if distanceCategory != nil {
+		condition = assessDistanceBasedRunningCondition(
+			weather.Current.Temperature,
+			weather.Current.ApparentTemp,
+			float64(weather.Current.Humidity),
+			weather.Current.WindSpeed,
+			weather.Current.Precipitation,
+			weather.Current.WeatherCode,
+			distanceCategory,
+		)
+		titleSuffix = fmt.Sprintf("(%s)", distanceCategory.DisplayName)
+	} else {
+		condition = assessRunningCondition(
+			weather.Current.Temperature,
+			weather.Current.ApparentTemp,
+			float64(weather.Current.Humidity),
+			weather.Current.WindSpeed,
+			weather.Current.Precipitation,
+			weather.Current.WeatherCode,
+		)
+		titleSuffix = ""
+	}
+	
+	fmt.Printf("🏃‍♂️ %s のランニング情報%s\n", cityName, titleSuffix)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	// Distance category info
+	if distanceCategory != nil {
+		fmt.Printf("📏 目標距離: %s (%.1f-%.1fkm)\n", distanceCategory.DisplayName, distanceCategory.MinKm, distanceCategory.MaxKm)
+		fmt.Printf("💭 %s\n", distanceCategory.Description)
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	}
+	
+	// Running condition display
+	fmt.Printf("🏆 ランニング指数: %d/100 (%s)\n", condition.Score, condition.Level)
+	fmt.Printf("💡 %s\n", condition.Recommendation)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	// Detailed weather info
+	fmt.Printf("🌡️  気温: %.1f°C (体感: %.1f°C)\n", weather.Current.Temperature, weather.Current.ApparentTemp)
+	fmt.Printf("💧 湿度: %d%%\n", weather.Current.Humidity)
+	fmt.Printf("🌬️  風: %s %.1f m/s\n", getWindDirection(weather.Current.WindDirection), weather.Current.WindSpeed)
+	fmt.Printf("☁️  天気: %s\n", getWeatherDescription(weather.Current.WeatherCode))
+	if weather.Current.Precipitation > 0 {
+		fmt.Printf("🌧️  降水量: %.1f mm/h\n", weather.Current.Precipitation)
+	}
+	
+	// Clothing recommendations
+	if len(condition.Clothing) > 0 {
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		fmt.Printf("👕 推奨ウェア:\n")
+		for _, item := range condition.Clothing {
+			fmt.Printf("   • %s\n", item)
+		}
+	}
+	
+	// Warnings
+	if len(condition.Warnings) > 0 {
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		fmt.Printf("⚠️  注意事項:\n")
+		for _, warning := range condition.Warnings {
+			fmt.Printf("   %s\n", warning)
+		}
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 }
