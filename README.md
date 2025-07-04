@@ -60,7 +60,7 @@ go build -o weather-cli
 - `--running`: 🏃‍♂️ ランニング向け情報を表示（コンディション評価、服装推奨、注意事項）
 - `--time`: ⏰ 時間帯を指定（morning=早朝5-9時, noon=昼11-15時, evening=夕方17-19時, night=夜21-23時）
 - `--date`: 📅 日付を指定（today=今日, tomorrow=明日, day-after-tomorrow=明後日）
-- `--distance`: 🏃‍♂️ 目標距離を指定（5k, 10k, half, full）※自動的にランニングモードが有効化
+- `-distance`: 🏃‍♂️ 目標距離を指定（5k, 10k, half, full）※自動的にランニングモードが有効化
 
 ### 対応都市
 
