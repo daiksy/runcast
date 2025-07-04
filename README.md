@@ -39,6 +39,12 @@ go build -o weather-cli
 
 # ⏰ 大阪の夕方時間帯のランニング情報を取得
 ./weather-cli -city osaka --time evening --running
+
+# 📅 明日の東京の天気を取得
+./weather-cli -city tokyo --date tomorrow
+
+# 📅 明後日の札幌の早朝ランニング情報を取得
+./weather-cli -city sapporo --date day-after-tomorrow --time morning --running
 ```
 
 ### オプション
@@ -47,6 +53,7 @@ go build -o weather-cli
 - `-days`: 予報日数を指定（1-7日、0は現在の天気のみ、デフォルト: 0）
 - `--running`: 🏃‍♂️ ランニング向け情報を表示（コンディション評価、服装推奨、注意事項）
 - `--time`: ⏰ 時間帯を指定（morning=早朝5-9時, noon=昼11-15時, evening=夕方17-19時, night=夜21-23時）
+- `--date`: 📅 日付を指定（today=今日, tomorrow=明日, day-after-tomorrow=明後日）
 
 ### 対応都市
 
@@ -95,6 +102,19 @@ go build -o weather-cli
 - **最適時間の自動推奨**: その時間帯で最もランニングに適した時刻を表示
 - 時間ごとの気温変化と体感温度
 - 降水予測とランニング可否判断
+
+## 📅 相対日付指定機能
+
+### 対応日付
+- **今日** (today): 当日の天気・ランニング情報
+- **明日** (tomorrow): 翌日の予報情報
+- **明後日** (day-after-tomorrow): 翌々日の予報情報
+
+### 日付指定の特徴
+- **前日からの計画立案**: ランニング予定を事前に確認
+- **時間帯との組み合わせ**: 明日の早朝、明後日の夕方など具体的な計画
+- **ランニングモード対応**: 日付指定でもランニング評価・推奨を提供
+- **詳細な予報データ**: 当日と同じ粒度での情報表示
 
 ## 注意事項
 
