@@ -28,6 +28,32 @@ From this point forward, development should follow a pull request-based workflow
 
 Tests should be added to ensure code quality and reliability. Test files should follow Go conventions (`*_test.go`).
 
+### Running Tests
+
+```bash
+# Run all tests
+go test
+
+# Run tests with verbose output
+go test -v
+
+# Run only unit tests (skip integration tests)
+go test -short
+
+# Run tests with coverage
+go test -cover
+
+# Run benchmarks
+go test -bench=.
+```
+
+### Test Structure
+
+- `main_test.go` - Unit tests for core functions
+- `integration_test.go` - Integration tests that make actual API calls
+
+Integration tests require internet connection and can be skipped with `-short` flag.
+
 ## API Information
 
 - Data Source: Open-Meteo JMA API

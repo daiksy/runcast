@@ -189,7 +189,7 @@ func displayForecastWeather(weather *WeatherData, cityName string, days int) {
 
 func formatDate(dateStr string) string {
 	// 簡単な日付パース（YYYY-MM-DD形式想定）
-	if len(dateStr) >= 10 {
+	if len(dateStr) >= 10 && dateStr[4] == '-' && dateStr[7] == '-' {
 		month := dateStr[5:7]
 		day := dateStr[8:10]
 		return fmt.Sprintf("%s月%s日", month, day)
