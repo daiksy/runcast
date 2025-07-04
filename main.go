@@ -52,14 +52,34 @@ type CityCoordinate struct {
 	Lon  float64
 }
 
+type TimeBasedWeather struct {
+	Time        string
+	Temperature float64
+	ApparentTemp float64
+	Humidity    int
+	WindSpeed   float64
+	WindDirection float64
+	WeatherCode int
+	Precipitation float64
+}
+
+type TimePeriod struct {
+	Name        string
+	DisplayName string
+	StartHour   int
+	EndHour     int
+}
+
 func main() {
 	var city string
 	var days int
 	var runningMode bool
+	var timeOfDay string
 	
 	flag.StringVar(&city, "city", "Tokyo", "都市名を指定")
 	flag.IntVar(&days, "days", 0, "予報日数を指定（1-7日、0は現在の天気のみ）")
 	flag.BoolVar(&runningMode, "running", false, "ランニング向け情報を表示")
+	flag.StringVar(&timeOfDay, "time", "", "時間帯を指定（morning=早朝, noon=昼, evening=夕方, night=夜）")
 	flag.Parse()
 
 	if city == "" {
@@ -70,6 +90,27 @@ func main() {
 	if days < 0 || days > 7 {
 		fmt.Println("予報日数は0-7日の範囲で指定してください")
 		os.Exit(1)
+	}
+	
+	// Validate time of day
+	if timeOfDay != "" {
+		validTimes := []string{"morning", "noon", "evening", "night"}
+		valid := false
+		for _, validTime := range validTimes {
+			if timeOfDay == validTime {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			fmt.Println("時間帯は morning, noon, evening, night のいずれかを指定してください")
+			os.Exit(1)
+		}
+		
+		// Time-based queries require forecast data
+		if days == 0 {
+			days = 1
+		}
 	}
 
 	coord, err := getCityCoordinate(city)
@@ -84,7 +125,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if runningMode {
+	if timeOfDay != "" {
+		// Time-specific weather
+		if runningMode {
+			displayTimeBasedRunningWeather(weather, coord.Name, timeOfDay, days)
+		} else {
+			displayTimeBasedWeather(weather, coord.Name, timeOfDay, days)
+		}
+	} else if runningMode {
 		if days == 0 {
 			displayRunningWeather(weather, coord.Name)
 		} else {
@@ -512,4 +560,157 @@ func getWeatherDescription(code int) string {
 		return desc
 	}
 	return "不明"
+}
+
+func getTimePeriods() map[string]TimePeriod {
+	return map[string]TimePeriod{
+		"morning": {"morning", "早朝", 5, 9},
+		"noon":    {"noon", "昼", 11, 15},
+		"evening": {"evening", "夕方", 17, 19},
+		"night":   {"night", "夜", 21, 23},
+	}
+}
+
+func extractTimeBasedWeather(weather *WeatherData, timeOfDay string, days int) []TimeBasedWeather {
+	periods := getTimePeriods()
+	period, exists := periods[timeOfDay]
+	if !exists {
+		return nil
+	}
+
+	var results []TimeBasedWeather
+	
+	for day := 0; day < days && day < len(weather.Hourly.Time)/24; day++ {
+		for hour := period.StartHour; hour <= period.EndHour; hour++ {
+			index := day*24 + hour
+			if index < len(weather.Hourly.Time) {
+				results = append(results, TimeBasedWeather{
+					Time:          weather.Hourly.Time[index],
+					Temperature:   weather.Hourly.Temperature[index],
+					ApparentTemp:  weather.Hourly.ApparentTemp[index],
+					Humidity:      weather.Hourly.Humidity[index],
+					WindSpeed:     weather.Hourly.WindSpeed[index],
+					WindDirection: weather.Hourly.WindDirection[index],
+					WeatherCode:   weather.Hourly.WeatherCode[index],
+					Precipitation: weather.Hourly.Precipitation[index],
+				})
+			}
+		}
+	}
+	
+	return results
+}
+
+func displayTimeBasedWeather(weather *WeatherData, cityName, timeOfDay string, days int) {
+	periods := getTimePeriods()
+	period := periods[timeOfDay]
+	
+	timeData := extractTimeBasedWeather(weather, timeOfDay, days)
+	if len(timeData) == 0 {
+		fmt.Println("指定された時間帯のデータが見つかりません")
+		return
+	}
+	
+	fmt.Printf("🌤️  %s の%s時間帯天気情報\n", cityName, period.DisplayName)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	for i, data := range timeData {
+		hour := extractHour(data.Time)
+		temp := data.Temperature
+		weather := getWeatherDescription(data.WeatherCode)
+		
+		fmt.Printf("📅 %s時: %.1f°C | %s", hour, temp, weather)
+		if data.Precipitation > 0 {
+			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
+		}
+		fmt.Printf("\n")
+		
+		if (i+1)%3 == 0 && i < len(timeData)-1 {
+			fmt.Printf("   ────────────────────────────\n")
+		}
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func displayTimeBasedRunningWeather(weather *WeatherData, cityName, timeOfDay string, days int) {
+	periods := getTimePeriods()
+	period := periods[timeOfDay]
+	
+	timeData := extractTimeBasedWeather(weather, timeOfDay, days)
+	if len(timeData) == 0 {
+		fmt.Println("指定された時間帯のデータが見つかりません")
+		return
+	}
+	
+	fmt.Printf("🏃‍♂️ %s の%s時間帯ランニング情報\n", cityName, period.DisplayName)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	bestCondition := TimeBasedWeather{}
+	bestScore := -1
+	bestTime := ""
+	
+	fmt.Printf("⏰ %s時間帯詳細 (%d:00-%d:00)\n", period.DisplayName, period.StartHour, period.EndHour)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	for _, data := range timeData {
+		condition := assessRunningCondition(
+			data.Temperature,
+			data.ApparentTemp,
+			float64(data.Humidity),
+			data.WindSpeed,
+			data.Precipitation,
+			data.WeatherCode,
+		)
+		
+		hour := extractHour(data.Time)
+		fmt.Printf("🕐 %s時: %d/100 (%s)\n", hour, condition.Score, condition.Level)
+		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%%\n", 
+			data.Temperature, data.ApparentTemp, data.Humidity)
+		fmt.Printf("   ☁️ %s", getWeatherDescription(data.WeatherCode))
+		if data.Precipitation > 0 {
+			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
+		}
+		fmt.Printf("\n")
+		
+		if condition.Score > bestScore {
+			bestScore = condition.Score
+			bestCondition = data
+			bestTime = hour
+		}
+		
+		fmt.Printf("   ────────────────────────────\n")
+	}
+	
+	// Best time recommendation
+	if bestScore >= 0 {
+		bestRunningCondition := assessRunningCondition(
+			bestCondition.Temperature,
+			bestCondition.ApparentTemp,
+			float64(bestCondition.Humidity),
+			bestCondition.WindSpeed,
+			bestCondition.Precipitation,
+			bestCondition.WeatherCode,
+		)
+		
+		fmt.Printf("🏆 最適時間: %s時 (スコア: %d/100)\n", bestTime, bestScore)
+		fmt.Printf("💡 %s\n", bestRunningCondition.Recommendation)
+		
+		if len(bestRunningCondition.Warnings) > 0 {
+			fmt.Printf("⚠️  注意事項:\n")
+			for _, warning := range bestRunningCondition.Warnings {
+				fmt.Printf("   %s\n", warning)
+			}
+		}
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func extractHour(timeStr string) string {
+	// Extract hour from ISO time string (YYYY-MM-DDTHH:MM)
+	if len(timeStr) >= 13 {
+		return timeStr[11:13]
+	}
+	return timeStr
 }
