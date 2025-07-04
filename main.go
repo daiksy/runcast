@@ -7,34 +7,39 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 const (
-	apiURL = "https://api.openweathermap.org/data/2.5/weather"
-	apiKey = "demo" // デモ用、実際は環境変数から取得
+	apiURL = "https://api.open-meteo.com/v1/jma"
 )
 
 type WeatherData struct {
-	Name string `json:"name"`
-	Main struct {
-		Temp     float64 `json:"temp"`
-		Humidity int     `json:"humidity"`
-	} `json:"main"`
-	Weather []struct {
-		Main        string `json:"main"`
-		Description string `json:"description"`
-	} `json:"weather"`
-	Wind struct {
-		Speed float64 `json:"speed"`
-	} `json:"wind"`
+	Current struct {
+		Temperature float64 `json:"temperature_2m"`
+		Humidity    int     `json:"relative_humidity_2m"`
+		WindSpeed   float64 `json:"wind_speed_10m"`
+		WeatherCode int     `json:"weather_code"`
+	} `json:"current"`
+	Hourly struct {
+		Time        []string  `json:"time"`
+		Temperature []float64 `json:"temperature_2m"`
+		Humidity    []int     `json:"relative_humidity_2m"`
+		WindSpeed   []float64 `json:"wind_speed_10m"`
+		WeatherCode []int     `json:"weather_code"`
+	} `json:"hourly"`
+}
+
+type CityCoordinate struct {
+	Name string
+	Lat  float64
+	Lon  float64
 }
 
 func main() {
 	var city string
-	var units string
 	
 	flag.StringVar(&city, "city", "Tokyo", "都市名を指定")
-	flag.StringVar(&units, "units", "metric", "単位 (metric, imperial, kelvin)")
 	flag.Parse()
 
 	if city == "" {
@@ -42,17 +47,47 @@ func main() {
 		os.Exit(1)
 	}
 
-	weather, err := getWeather(city, units)
+	coord, err := getCityCoordinate(city)
+	if err != nil {
+		fmt.Printf("都市の座標取得に失敗しました: %v\n", err)
+		os.Exit(1)
+	}
+
+	weather, err := getWeather(coord.Lat, coord.Lon)
 	if err != nil {
 		fmt.Printf("天気情報の取得に失敗しました: %v\n", err)
 		os.Exit(1)
 	}
 
-	displayWeather(weather, units)
+	displayWeather(weather, coord.Name)
 }
 
-func getWeather(city, units string) (*WeatherData, error) {
-	url := fmt.Sprintf("%s?q=%s&appid=%s&units=%s", apiURL, city, apiKey, units)
+func getCityCoordinate(city string) (*CityCoordinate, error) {
+	cities := map[string]CityCoordinate{
+		"tokyo":    {"東京", 35.6762, 139.6503},
+		"osaka":    {"大阪", 34.6937, 135.5023},
+		"kyoto":    {"京都", 35.0116, 135.7681},
+		"yokohama": {"横浜", 35.4437, 139.6380},
+		"nagoya":   {"名古屋", 35.1815, 136.9066},
+		"sapporo":  {"札幌", 43.0642, 141.3469},
+		"fukuoka":  {"福岡", 33.5904, 130.4017},
+		"sendai":   {"仙台", 38.2682, 140.8694},
+		"hiroshima":{"広島", 34.3853, 132.4553},
+		"naha":     {"那覇", 26.2124, 127.6792},
+	}
+	
+	if coord, exists := cities[city]; exists {
+		return &coord, nil
+	}
+	
+	return nil, fmt.Errorf("都市が見つかりません: %s", city)
+}
+
+func getWeather(lat, lon float64) (*WeatherData, error) {
+	url := fmt.Sprintf("%s?latitude=%s&longitude=%s&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=Asia/Tokyo&forecast_days=1", 
+		apiURL, 
+		strconv.FormatFloat(lat, 'f', 4, 64), 
+		strconv.FormatFloat(lon, 'f', 4, 64))
 	
 	resp, err := http.Get(url)
 	if err != nil {
@@ -77,25 +112,45 @@ func getWeather(city, units string) (*WeatherData, error) {
 	return &weather, nil
 }
 
-func displayWeather(weather *WeatherData, units string) {
-	fmt.Printf("🌤️  %s の天気情報\n", weather.Name)
+func displayWeather(weather *WeatherData, cityName string) {
+	fmt.Printf("🌤️  %s の天気情報\n", cityName)
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 	
-	// 温度単位の表示
-	tempUnit := "°C"
-	if units == "imperial" {
-		tempUnit = "°F"
-	} else if units == "kelvin" {
-		tempUnit = "K"
-	}
-	
-	fmt.Printf("🌡️  気温: %.1f%s\n", weather.Main.Temp, tempUnit)
-	fmt.Printf("💧 湿度: %d%%\n", weather.Main.Humidity)
-	fmt.Printf("🌬️  風速: %.1f m/s\n", weather.Wind.Speed)
-	
-	if len(weather.Weather) > 0 {
-		fmt.Printf("☁️  天気: %s (%s)\n", weather.Weather[0].Main, weather.Weather[0].Description)
-	}
+	fmt.Printf("🌡️  気温: %.1f°C\n", weather.Current.Temperature)
+	fmt.Printf("💧 湿度: %d%%\n", weather.Current.Humidity)
+	fmt.Printf("🌬️  風速: %.1f m/s\n", weather.Current.WindSpeed)
+	fmt.Printf("☁️  天気: %s\n", getWeatherDescription(weather.Current.WeatherCode))
 	
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func getWeatherDescription(code int) string {
+	weatherCodes := map[int]string{
+		0:  "快晴",
+		1:  "晴れ",
+		2:  "一部曇り",
+		3:  "曇り",
+		45: "霧",
+		48: "着氷性の霧",
+		51: "弱い霧雨",
+		53: "中程度の霧雨",
+		55: "強い霧雨",
+		61: "弱い雨",
+		63: "中程度の雨",
+		65: "強い雨",
+		71: "弱い雪",
+		73: "中程度の雪",
+		75: "強い雪",
+		80: "弱いにわか雨",
+		81: "中程度のにわか雨",
+		82: "強いにわか雨",
+		95: "雷雨",
+		96: "雹を伴う雷雨",
+		99: "大粒の雹を伴う雷雨",
+	}
+	
+	if desc, exists := weatherCodes[code]; exists {
+		return desc
+	}
+	return "不明"
 }

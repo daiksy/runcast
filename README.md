@@ -6,7 +6,8 @@ Go言語で作られたシンプルな天気予報CLIツールです。
 
 - 指定した都市の現在の天気情報を取得
 - 気温、湿度、風速、天気状況を表示
-- 温度単位の選択（摂氏、華氏、ケルビン）
+- 日本気象庁（JMA）のデータを使用
+- **APIキー不要**
 
 ## 使用方法
 
@@ -20,29 +21,37 @@ go build -o weather-cli
 
 ```bash
 # 東京の天気を取得
-./weather-cli -city Tokyo
+./weather-cli -city tokyo
 
 # 大阪の天気を取得
-./weather-cli -city Osaka
+./weather-cli -city osaka
 
-# 華氏で表示
-./weather-cli -city "New York" -units imperial
+# 札幌の天気を取得
+./weather-cli -city sapporo
 ```
 
 ### オプション
 
 - `-city`: 都市名を指定（デフォルト: Tokyo）
-- `-units`: 温度単位を指定（metric, imperial, kelvin）
 
-## API Key の設定
+### 対応都市
 
-実際に使用する場合は、OpenWeatherMap のAPI Keyが必要です：
+- tokyo（東京）
+- osaka（大阪）
+- kyoto（京都）
+- yokohama（横浜）
+- nagoya（名古屋）
+- sapporo（札幌）
+- fukuoka（福岡）
+- sendai（仙台）
+- hiroshima（広島）
+- naha（那覇）
 
-1. https://openweathermap.org/api でアカウントを作成
-2. API Keyを取得
-3. 環境変数 `OPENWEATHER_API_KEY` に設定
+## データソース
+
+本アプリケーションは[Open-Meteo](https://open-meteo.com/)のJMA APIを使用して、日本気象庁のデータを取得しています。APIキーは不要で、無料で利用できます。
 
 ## 注意事項
 
-- 現在はデモ用のAPIキーを使用しているため、実際の天気データは取得できません
-- 本格的に使用する場合は、有効なAPI Keyを設定してください
+- 現在は日本の主要都市のみ対応しています
+- 天気情報は日本気象庁の高解像度データ（5km）を使用しています
