@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -295,22 +296,68 @@ func assessRunningCondition(temp, apparentTemp, humidity float64, windSpeed, pre
 	
 	condition.Score = max(0, score)
 	
-	// Determine level and recommendation
-	if condition.Score >= 80 {
-		condition.Level = "最高"
-		condition.Recommendation = "ランニングに最適な天候です！"
-	} else if condition.Score >= 60 {
-		condition.Level = "良好"
-		condition.Recommendation = "ランニングに適した天候です"
-	} else if condition.Score >= 40 {
-		condition.Level = "普通"
-		condition.Recommendation = "注意しながらランニング可能です"
-	} else if condition.Score >= 20 {
-		condition.Level = "注意"
-		condition.Recommendation = "ランニングは控えめに、安全第一で"
+	// Determine level and recommendation based on score AND warnings
+	hasWarnings := len(condition.Warnings) > 0
+	hasSevereWarnings := false
+	
+	// Check for severe warnings
+	for _, warning := range condition.Warnings {
+		if strings.Contains(warning, "熱中症注意") || 
+		   strings.Contains(warning, "雷雨") || 
+		   strings.Contains(warning, "強風注意") {
+			hasSevereWarnings = true
+			break
+		}
+	}
+	
+	if hasSevereWarnings {
+		// Override recommendation if there are severe warnings
+		if condition.Score >= 60 {
+			condition.Level = "注意"
+			condition.Recommendation = "警告事項があります。十分注意してランニングしてください"
+		} else if condition.Score >= 40 {
+			condition.Level = "注意"
+			condition.Recommendation = "警告事項があります。ランニングは控えめに"
+		} else {
+			condition.Level = "危険"
+			condition.Recommendation = "危険な状況です。ランニング中止を強く推奨します"
+		}
+	} else if hasWarnings {
+		// Moderate warnings present
+		if condition.Score >= 80 {
+			condition.Level = "良好"
+			condition.Recommendation = "注意事項がありますが、ランニング可能です"
+		} else if condition.Score >= 60 {
+			condition.Level = "良好"
+			condition.Recommendation = "注意事項を確認してからランニングしてください"
+		} else if condition.Score >= 40 {
+			condition.Level = "普通"
+			condition.Recommendation = "注意しながらランニング可能です"
+		} else if condition.Score >= 20 {
+			condition.Level = "注意"
+			condition.Recommendation = "ランニングは控えめに、安全第一で"
+		} else {
+			condition.Level = "危険"
+			condition.Recommendation = "ランニング中止を推奨します"
+		}
 	} else {
-		condition.Level = "危険"
-		condition.Recommendation = "ランニング中止を推奨します"
+		// No warnings - original scoring system
+		if condition.Score >= 80 {
+			condition.Level = "最高"
+			condition.Recommendation = "ランニングに最適な天候です！"
+		} else if condition.Score >= 60 {
+			condition.Level = "良好"
+			condition.Recommendation = "ランニングに適した天候です"
+		} else if condition.Score >= 40 {
+			condition.Level = "普通"
+			condition.Recommendation = "注意しながらランニング可能です"
+		} else if condition.Score >= 20 {
+			condition.Level = "注意"
+			condition.Recommendation = "ランニングは控えめに、安全第一で"
+		} else {
+			condition.Level = "危険"
+			condition.Recommendation = "ランニング中止を推奨します"
+		}
 	}
 	
 	return condition
