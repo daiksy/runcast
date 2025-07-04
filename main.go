@@ -75,11 +75,13 @@ func main() {
 	var days int
 	var runningMode bool
 	var timeOfDay string
+	var dateSpec string
 	
 	flag.StringVar(&city, "city", "Tokyo", "都市名を指定")
 	flag.IntVar(&days, "days", 0, "予報日数を指定（1-7日、0は現在の天気のみ）")
 	flag.BoolVar(&runningMode, "running", false, "ランニング向け情報を表示")
 	flag.StringVar(&timeOfDay, "time", "", "時間帯を指定（morning=早朝, noon=昼, evening=夕方, night=夜）")
+	flag.StringVar(&dateSpec, "date", "", "日付を指定（today=今日, tomorrow=明日, day-after-tomorrow=明後日）")
 	flag.Parse()
 
 	if city == "" {
@@ -90,6 +92,38 @@ func main() {
 	if days < 0 || days > 7 {
 		fmt.Println("予報日数は0-7日の範囲で指定してください")
 		os.Exit(1)
+	}
+	
+	// Validate date specification
+	var dayOffset int = 0
+	if dateSpec != "" {
+		validDates := []string{"today", "tomorrow", "day-after-tomorrow"}
+		valid := false
+		for _, validDate := range validDates {
+			if dateSpec == validDate {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			fmt.Println("日付は today, tomorrow, day-after-tomorrow のいずれかを指定してください")
+			os.Exit(1)
+		}
+		
+		// Calculate day offset
+		switch dateSpec {
+		case "today":
+			dayOffset = 0
+		case "tomorrow":
+			dayOffset = 1
+		case "day-after-tomorrow":
+			dayOffset = 2
+		}
+		
+		// Date-based queries require forecast data
+		if days == 0 {
+			days = max(3, dayOffset + 1) // Ensure we have enough forecast days
+		}
 	}
 	
 	// Validate time of day
@@ -125,7 +159,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	if timeOfDay != "" {
+	if dateSpec != "" {
+		// Date-specific weather
+		if timeOfDay != "" {
+			// Date + time specific weather
+			if runningMode {
+				displayDateTimeBasedRunningWeather(weather, coord.Name, dateSpec, timeOfDay, dayOffset)
+			} else {
+				displayDateTimeBasedWeather(weather, coord.Name, dateSpec, timeOfDay, dayOffset)
+			}
+		} else {
+			// Date specific weather (full day)
+			if runningMode {
+				displayDateBasedRunningWeather(weather, coord.Name, dateSpec, dayOffset)
+			} else {
+				displayDateBasedWeather(weather, coord.Name, dateSpec, dayOffset)
+			}
+		}
+	} else if timeOfDay != "" {
 		// Time-specific weather
 		if runningMode {
 			displayTimeBasedRunningWeather(weather, coord.Name, timeOfDay, days)
@@ -713,4 +764,271 @@ func extractHour(timeStr string) string {
 		return timeStr[11:13]
 	}
 	return timeStr
+}
+
+func extractDateBasedWeather(weather *WeatherData, dayOffset int) *WeatherData {
+	if dayOffset == 0 || len(weather.Daily.Time) == 0 {
+		return weather
+	}
+	
+	// Extract specific day data from forecast
+	dateSpecificWeather := &WeatherData{
+		Current: weather.Current, // Keep current for reference
+		Daily: struct {
+			Time           []string  `json:"time"`
+			TemperatureMax []float64 `json:"temperature_2m_max"`
+			TemperatureMin []float64 `json:"temperature_2m_min"`
+			WeatherCode    []int     `json:"weather_code"`
+			WindSpeedMax   []float64 `json:"wind_speed_10m_max"`
+			PrecipitationSum []float64 `json:"precipitation_sum"`
+		}{},
+		Hourly: struct {
+			Time           []string  `json:"time"`
+			Temperature    []float64 `json:"temperature_2m"`
+			ApparentTemp   []float64 `json:"apparent_temperature"`
+			Humidity       []int     `json:"relative_humidity_2m"`
+			WindSpeed      []float64 `json:"wind_speed_10m"`
+			WindDirection  []float64 `json:"wind_direction_10m"`
+			WeatherCode    []int     `json:"weather_code"`
+			Precipitation  []float64 `json:"precipitation"`
+		}{},
+	}
+	
+	// Extract specific day from daily data
+	if dayOffset < len(weather.Daily.Time) {
+		dateSpecificWeather.Daily.Time = []string{weather.Daily.Time[dayOffset]}
+		dateSpecificWeather.Daily.TemperatureMax = []float64{weather.Daily.TemperatureMax[dayOffset]}
+		dateSpecificWeather.Daily.TemperatureMin = []float64{weather.Daily.TemperatureMin[dayOffset]}
+		dateSpecificWeather.Daily.WeatherCode = []int{weather.Daily.WeatherCode[dayOffset]}
+		dateSpecificWeather.Daily.WindSpeedMax = []float64{weather.Daily.WindSpeedMax[dayOffset]}
+		dateSpecificWeather.Daily.PrecipitationSum = []float64{weather.Daily.PrecipitationSum[dayOffset]}
+	}
+	
+	// Extract 24 hours of hourly data for the specific day
+	startIndex := dayOffset * 24
+	endIndex := startIndex + 24
+	if endIndex <= len(weather.Hourly.Time) {
+		dateSpecificWeather.Hourly.Time = weather.Hourly.Time[startIndex:endIndex]
+		dateSpecificWeather.Hourly.Temperature = weather.Hourly.Temperature[startIndex:endIndex]
+		dateSpecificWeather.Hourly.ApparentTemp = weather.Hourly.ApparentTemp[startIndex:endIndex]
+		dateSpecificWeather.Hourly.Humidity = weather.Hourly.Humidity[startIndex:endIndex]
+		dateSpecificWeather.Hourly.WindSpeed = weather.Hourly.WindSpeed[startIndex:endIndex]
+		dateSpecificWeather.Hourly.WindDirection = weather.Hourly.WindDirection[startIndex:endIndex]
+		dateSpecificWeather.Hourly.WeatherCode = weather.Hourly.WeatherCode[startIndex:endIndex]
+		dateSpecificWeather.Hourly.Precipitation = weather.Hourly.Precipitation[startIndex:endIndex]
+	}
+	
+	return dateSpecificWeather
+}
+
+func displayDateBasedWeather(weather *WeatherData, cityName, dateSpec string, dayOffset int) {
+	dateSpecificWeather := extractDateBasedWeather(weather, dayOffset)
+	
+	dateDisplayName := getDateDisplayName(dateSpec)
+	fmt.Printf("🌤️  %s の%s天気予報\n", cityName, dateDisplayName)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	if len(dateSpecificWeather.Daily.Time) == 0 {
+		fmt.Println("指定された日付のデータが見つかりません")
+		return
+	}
+	
+	// Display daily summary
+	date := dateSpecificWeather.Daily.Time[0]
+	maxTemp := dateSpecificWeather.Daily.TemperatureMax[0]
+	minTemp := dateSpecificWeather.Daily.TemperatureMin[0]
+	weatherCode := dateSpecificWeather.Daily.WeatherCode[0]
+	maxWind := dateSpecificWeather.Daily.WindSpeedMax[0]
+	precipitation := dateSpecificWeather.Daily.PrecipitationSum[0]
+	
+	fmt.Printf("📅 %s (%s)\n", formatDate(date), dateDisplayName)
+	fmt.Printf("🌡️  最高: %.1f°C / 最低: %.1f°C\n", maxTemp, minTemp)
+	fmt.Printf("🌬️  最大風速: %.1f m/s\n", maxWind)
+	fmt.Printf("☁️  天気: %s\n", getWeatherDescription(weatherCode))
+	if precipitation > 0 {
+		fmt.Printf("🌧️  降水量: %.1f mm\n", precipitation)
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func displayDateBasedRunningWeather(weather *WeatherData, cityName, dateSpec string, dayOffset int) {
+	dateSpecificWeather := extractDateBasedWeather(weather, dayOffset)
+	
+	dateDisplayName := getDateDisplayName(dateSpec)
+	fmt.Printf("🏃‍♂️ %s の%sランニング情報\n", cityName, dateDisplayName)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	if len(dateSpecificWeather.Daily.Time) == 0 {
+		fmt.Println("指定された日付のデータが見つかりません")
+		return
+	}
+	
+	// Daily summary
+	date := dateSpecificWeather.Daily.Time[0]
+	maxTemp := dateSpecificWeather.Daily.TemperatureMax[0]
+	minTemp := dateSpecificWeather.Daily.TemperatureMin[0]
+	weatherCode := dateSpecificWeather.Daily.WeatherCode[0]
+	maxWind := dateSpecificWeather.Daily.WindSpeedMax[0]
+	precipitation := dateSpecificWeather.Daily.PrecipitationSum[0]
+	
+	// Estimate daily running condition (using average temperature)
+	avgTemp := (maxTemp + minTemp) / 2
+	dailyCondition := assessRunningCondition(avgTemp, avgTemp, 60, maxWind, precipitation, weatherCode)
+	
+	fmt.Printf("📅 %s (%s)\n", formatDate(date), dateDisplayName)
+	fmt.Printf("🏆 ランニング指数: %d/100 (%s)\n", dailyCondition.Score, dailyCondition.Level)
+	fmt.Printf("💡 %s\n", dailyCondition.Recommendation)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	fmt.Printf("🌡️  %s%.1f°C〜%.1f°C\n", getRunningTempIcon(avgTemp), minTemp, maxTemp)
+	fmt.Printf("☁️  %s\n", getWeatherDescription(weatherCode))
+	if precipitation > 0 {
+		fmt.Printf("🌧️  降水量: %.1f mm\n", precipitation)
+	}
+	
+	// Clothing recommendations
+	if len(dailyCondition.Clothing) > 0 {
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		fmt.Printf("👕 推奨ウェア:\n")
+		for _, item := range dailyCondition.Clothing {
+			fmt.Printf("   • %s\n", item)
+		}
+	}
+	
+	// Warnings
+	if len(dailyCondition.Warnings) > 0 {
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		fmt.Printf("⚠️  注意事項:\n")
+		for _, warning := range dailyCondition.Warnings {
+			fmt.Printf("   %s\n", warning)
+		}
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func displayDateTimeBasedWeather(weather *WeatherData, cityName, dateSpec, timeOfDay string, dayOffset int) {
+	dateSpecificWeather := extractDateBasedWeather(weather, dayOffset)
+	
+	periods := getTimePeriods()
+	period := periods[timeOfDay]
+	dateDisplayName := getDateDisplayName(dateSpec)
+	
+	timeData := extractTimeBasedWeather(dateSpecificWeather, timeOfDay, 1)
+	if len(timeData) == 0 {
+		fmt.Println("指定された日付・時間帯のデータが見つかりません")
+		return
+	}
+	
+	fmt.Printf("🌤️  %s の%s%s時間帯天気情報\n", cityName, dateDisplayName, period.DisplayName)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	for i, data := range timeData {
+		hour := extractHour(data.Time)
+		temp := data.Temperature
+		weather := getWeatherDescription(data.WeatherCode)
+		
+		fmt.Printf("📅 %s時: %.1f°C | %s", hour, temp, weather)
+		if data.Precipitation > 0 {
+			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
+		}
+		fmt.Printf("\n")
+		
+		if (i+1)%3 == 0 && i < len(timeData)-1 {
+			fmt.Printf("   ────────────────────────────\n")
+		}
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func displayDateTimeBasedRunningWeather(weather *WeatherData, cityName, dateSpec, timeOfDay string, dayOffset int) {
+	dateSpecificWeather := extractDateBasedWeather(weather, dayOffset)
+	
+	periods := getTimePeriods()
+	period := periods[timeOfDay]
+	dateDisplayName := getDateDisplayName(dateSpec)
+	
+	timeData := extractTimeBasedWeather(dateSpecificWeather, timeOfDay, 1)
+	if len(timeData) == 0 {
+		fmt.Println("指定された日付・時間帯のデータが見つかりません")
+		return
+	}
+	
+	fmt.Printf("🏃‍♂️ %s の%s%s時間帯ランニング情報\n", cityName, dateDisplayName, period.DisplayName)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	bestCondition := TimeBasedWeather{}
+	bestScore := -1
+	bestTime := ""
+	
+	fmt.Printf("⏰ %s%s時間帯詳細 (%d:00-%d:00)\n", dateDisplayName, period.DisplayName, period.StartHour, period.EndHour)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	
+	for _, data := range timeData {
+		condition := assessRunningCondition(
+			data.Temperature,
+			data.ApparentTemp,
+			float64(data.Humidity),
+			data.WindSpeed,
+			data.Precipitation,
+			data.WeatherCode,
+		)
+		
+		hour := extractHour(data.Time)
+		fmt.Printf("🕐 %s時: %d/100 (%s)\n", hour, condition.Score, condition.Level)
+		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%%\n", 
+			data.Temperature, data.ApparentTemp, data.Humidity)
+		fmt.Printf("   ☁️ %s", getWeatherDescription(data.WeatherCode))
+		if data.Precipitation > 0 {
+			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
+		}
+		fmt.Printf("\n")
+		
+		if condition.Score > bestScore {
+			bestScore = condition.Score
+			bestCondition = data
+			bestTime = hour
+		}
+		
+		fmt.Printf("   ────────────────────────────\n")
+	}
+	
+	// Best time recommendation
+	if bestScore >= 0 {
+		bestRunningCondition := assessRunningCondition(
+			bestCondition.Temperature,
+			bestCondition.ApparentTemp,
+			float64(bestCondition.Humidity),
+			bestCondition.WindSpeed,
+			bestCondition.Precipitation,
+			bestCondition.WeatherCode,
+		)
+		
+		fmt.Printf("🏆 最適時間: %s時 (スコア: %d/100)\n", bestTime, bestScore)
+		fmt.Printf("💡 %s\n", bestRunningCondition.Recommendation)
+		
+		if len(bestRunningCondition.Warnings) > 0 {
+			fmt.Printf("⚠️  注意事項:\n")
+			for _, warning := range bestRunningCondition.Warnings {
+				fmt.Printf("   %s\n", warning)
+			}
+		}
+	}
+	
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+func getDateDisplayName(dateSpec string) string {
+	switch dateSpec {
+	case "today":
+		return "今日の"
+	case "tomorrow":
+		return "明日の"
+	case "day-after-tomorrow":
+		return "明後日の"
+	default:
+		return ""
+	}
 }
