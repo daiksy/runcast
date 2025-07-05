@@ -46,6 +46,9 @@ func main() {
 		if requiredDays <= dayOffset {
 			requiredDays = dayOffset + 1
 		}
+	} else if *timeOfDay != "" && requiredDays == 0 {
+		// Time-specific queries need at least 1 day of forecast data for hourly data
+		requiredDays = 1
 	}
 	
 	// Get weather data
@@ -76,9 +79,9 @@ func main() {
 	} else if *timeOfDay != "" {
 		// Time-specific weather
 		if *runningMode {
-			display.DisplayTimeBasedRunningWeatherWithDistance(weatherData, coord.Name, *timeOfDay, *days, distanceCategory)
+			display.DisplayTimeBasedRunningWeatherWithDistance(weatherData, coord.Name, *timeOfDay, requiredDays, distanceCategory)
 		} else {
-			display.DisplayTimeBasedWeather(weatherData, coord.Name, *timeOfDay, *days)
+			display.DisplayTimeBasedWeather(weatherData, coord.Name, *timeOfDay, requiredDays)
 		}
 	} else if *runningMode {
 		if *days == 0 {
