@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"weather-cli/internal/weather"
 )
 
 // Integration tests for API calls
@@ -41,48 +42,48 @@ func TestGetWeatherIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			weather, err := getWeather(tt.lat, tt.lon, tt.days)
+			weatherData, err := weather.GetWeather(tt.lat, tt.lon, tt.days)
 			if err != nil {
 				t.Fatalf("API call failed: %v", err)
 			}
 
 			// Verify current weather data is present
-			if weather.Current.Temperature == 0 && weather.Current.Humidity == 0 {
+			if weatherData.Current.Temperature == 0 && weatherData.Current.Humidity == 0 {
 				t.Error("Current weather data appears to be empty")
 			}
 
 			if tt.days > 0 {
 				// Verify daily forecast data is present
-				if len(weather.Daily.Time) == 0 {
+				if len(weatherData.Daily.Time) == 0 {
 					t.Error("Daily forecast data is missing")
 				}
 
-				if len(weather.Daily.Time) != len(weather.Daily.TemperatureMax) ||
-					len(weather.Daily.Time) != len(weather.Daily.TemperatureMin) ||
-					len(weather.Daily.Time) != len(weather.Daily.WeatherCode) {
+				if len(weatherData.Daily.Time) != len(weatherData.Daily.TemperatureMax) ||
+					len(weatherData.Daily.Time) != len(weatherData.Daily.TemperatureMin) ||
+					len(weatherData.Daily.Time) != len(weatherData.Daily.WeatherCode) {
 					t.Error("Daily forecast data arrays have inconsistent lengths")
 				}
 
 				// Verify we got at least the requested number of days (or fewer if API limits)
 				expectedDays := tt.days
-				if len(weather.Daily.Time) < expectedDays {
-					t.Logf("Warning: Expected %d days, got %d days", expectedDays, len(weather.Daily.Time))
+				if len(weatherData.Daily.Time) < expectedDays {
+					t.Logf("Warning: Expected %d days, got %d days", expectedDays, len(weatherData.Daily.Time))
 				}
 			}
 
 			// Verify weather codes are valid
-			if weather.Current.WeatherCode < 0 {
-				t.Errorf("Invalid weather code: %d", weather.Current.WeatherCode)
+			if weatherData.Current.WeatherCode < 0 {
+				t.Errorf("Invalid weather code: %d", weatherData.Current.WeatherCode)
 			}
 
 			// Verify temperature seems reasonable (between -50 and 60 Celsius)
-			if weather.Current.Temperature < -50 || weather.Current.Temperature > 60 {
-				t.Errorf("Temperature seems unreasonable: %.1f°C", weather.Current.Temperature)
+			if weatherData.Current.Temperature < -50 || weatherData.Current.Temperature > 60 {
+				t.Errorf("Temperature seems unreasonable: %.1f°C", weatherData.Current.Temperature)
 			}
 
 			// Verify humidity is in valid range (0-100%)
-			if weather.Current.Humidity < 0 || weather.Current.Humidity > 100 {
-				t.Errorf("Humidity out of range: %d%%", weather.Current.Humidity)
+			if weatherData.Current.Humidity < 0 || weatherData.Current.Humidity > 100 {
+				t.Errorf("Humidity out of range: %d%%", weatherData.Current.Humidity)
 			}
 		})
 	}
@@ -94,7 +95,7 @@ func TestGetWeatherWithInvalidCoordinates(t *testing.T) {
 	}
 
 	// Test with coordinates that are way out of range
-	_, err := getWeather(999.0, 999.0, 0)
+	_, err := weather.GetWeather(999.0, 999.0, 0)
 	
 	// The API might still return data or give an error
 	// We mainly want to ensure our code doesn't crash
@@ -112,27 +113,27 @@ func TestFullWorkflowIntegration(t *testing.T) {
 	// Test the complete workflow: city -> coordinates -> weather
 	city := "tokyo"
 	
-	coord, err := getCityCoordinate(city)
+	coord, err := weather.GetCityCoordinate(city)
 	if err != nil {
 		t.Fatalf("Failed to get coordinates for %s: %v", city, err)
 	}
 
-	weather, err := getWeather(coord.Lat, coord.Lon, 1)
+	weatherData, err := weather.GetWeather(coord.Lat, coord.Lon, 1)
 	if err != nil {
 		t.Fatalf("Failed to get weather for %s: %v", city, err)
 	}
 
 	// Verify we got reasonable data
-	if weather.Current.Temperature == 0 && weather.Current.Humidity == 0 {
+	if weatherData.Current.Temperature == 0 && weatherData.Current.Humidity == 0 {
 		t.Error("Weather data appears to be empty")
 	}
 
 	// Test weather description conversion
-	description := getWeatherDescription(weather.Current.WeatherCode)
+	description := weather.GetWeatherDescription(weatherData.Current.WeatherCode)
 	if description == "" {
 		t.Error("Weather description is empty")
 	}
 
 	t.Logf("Successfully retrieved weather for %s: %.1f°C, %s", 
-		coord.Name, weather.Current.Temperature, description)
+		coord.Name, weatherData.Current.Temperature, description)
 }
