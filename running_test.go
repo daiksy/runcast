@@ -2,6 +2,9 @@ package main
 
 import (
 	"testing"
+	"weather-cli/internal/display"
+	"weather-cli/internal/running"
+	"weather-cli/internal/weather"
 )
 
 func TestAssessRunningCondition(t *testing.T) {
@@ -81,7 +84,7 @@ func TestAssessRunningCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			condition := assessRunningCondition(
+			condition := running.AssessRunningCondition(
 				tt.temp,
 				tt.apparentTemp,
 				tt.humidity,
@@ -140,7 +143,7 @@ func TestGetWindDirection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
-			result := getWindDirection(tt.degrees)
+			result := weather.GetWindDirection(tt.degrees)
 			if result != tt.expected {
 				t.Errorf("Expected %s for %f degrees, got %s", tt.expected, tt.degrees, result)
 			}
@@ -154,15 +157,16 @@ func TestGetRunningTempIcon(t *testing.T) {
 		expected string
 	}{
 		{35, "🔥 "},
-		{28, "🌡️  "},
-		{20, "👌 "},
-		{10, "🧥 "},
-		{0, "❄️  "},
+		{28, "☀️ "},
+		{20, "🌤️ "},
+		{15, "🌥️ "},
+		{10, "☁️ "},
+		{0, "❄️ "},
 	}
 
 	for _, tt := range tests {
 		t.Run("temp_icon", func(t *testing.T) {
-			result := getRunningTempIcon(tt.temp)
+			result := display.GetRunningTempIcon(tt.temp)
 			if result != tt.expected {
 				t.Errorf("Expected %s for %.1f°C, got %s", tt.expected, tt.temp, result)
 			}
@@ -172,13 +176,13 @@ func TestGetRunningTempIcon(t *testing.T) {
 
 func TestRunningConditionWarnings(t *testing.T) {
 	// Test high temperature warnings
-	condition := assessRunningCondition(35, 40, 50, 2, 0, 1)
+	condition := running.AssessRunningCondition(35, 40, 50, 2, 0, 1)
 	if len(condition.Warnings) == 0 {
 		t.Error("Expected warnings for high temperature")
 	}
 
 	// Test high humidity warnings
-	condition = assessRunningCondition(25, 25, 90, 2, 0, 1)
+	condition = running.AssessRunningCondition(25, 25, 90, 2, 0, 1)
 	found := false
 	for _, warning := range condition.Warnings {
 		if len(warning) > 0 {
@@ -191,7 +195,7 @@ func TestRunningConditionWarnings(t *testing.T) {
 	}
 
 	// Test precipitation warnings
-	condition = assessRunningCondition(20, 20, 50, 2, 5, 63)
+	condition = running.AssessRunningCondition(20, 20, 50, 2, 5, 63)
 	found = false
 	for _, warning := range condition.Warnings {
 		if len(warning) > 0 {
@@ -206,7 +210,7 @@ func TestRunningConditionWarnings(t *testing.T) {
 
 func TestRunningConditionClothing(t *testing.T) {
 	// Test hot weather clothing
-	condition := assessRunningCondition(35, 40, 50, 2, 0, 1)
+	condition := running.AssessRunningCondition(35, 40, 50, 2, 0, 1)
 	found := false
 	for _, item := range condition.Clothing {
 		if item == "薄手の半袖" {
@@ -219,7 +223,7 @@ func TestRunningConditionClothing(t *testing.T) {
 	}
 
 	// Test cold weather clothing
-	condition = assessRunningCondition(0, -5, 50, 2, 0, 1)
+	condition = running.AssessRunningCondition(0, -5, 50, 2, 0, 1)
 	found = false
 	for _, item := range condition.Clothing {
 		if item == "防寒着" {
@@ -235,12 +239,12 @@ func TestRunningConditionClothing(t *testing.T) {
 // Benchmark tests for running functions
 func BenchmarkAssessRunningCondition(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		assessRunningCondition(20, 22, 60, 3, 0, 1)
+		running.AssessRunningCondition(20, 22, 60, 3, 0, 1)
 	}
 }
 
 func BenchmarkGetWindDirection(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		getWindDirection(180)
+		weather.GetWindDirection(180)
 	}
 }

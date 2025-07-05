@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"weather-cli/internal/running"
 )
 
 func TestRunningRecommendationWithWarnings(t *testing.T) {
@@ -81,7 +82,7 @@ func TestRunningRecommendationWithWarnings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			condition := assessRunningCondition(
+			condition := running.AssessRunningCondition(
 				tt.temp,
 				tt.apparentTemp,
 				tt.humidity,
@@ -120,7 +121,7 @@ func TestRunningRecommendationWithWarnings(t *testing.T) {
 
 func TestSevereWarningDetection(t *testing.T) {
 	// Test heat stroke warning
-	condition := assessRunningCondition(35, 40, 50, 2, 0, 1)
+	condition := running.AssessRunningCondition(35, 40, 50, 2, 0, 1)
 	
 	foundHeatWarning := false
 	for _, warning := range condition.Warnings {
@@ -146,19 +147,19 @@ func TestWarningCategorization(t *testing.T) {
 	// Test that different warning types are properly categorized
 	
 	// Severe warning (heat stroke)
-	condition1 := assessRunningCondition(35, 40, 50, 2, 0, 1)
+	condition1 := running.AssessRunningCondition(35, 40, 50, 2, 0, 1)
 	if condition1.Level == "最高" || condition1.Level == "良好" {
 		t.Error("Severe warning should prevent highest ratings")
 	}
 	
 	// Moderate warning (high humidity)
-	condition2 := assessRunningCondition(22, 22, 85, 3, 0, 1)
+	condition2 := running.AssessRunningCondition(22, 22, 85, 3, 0, 1)
 	if len(condition2.Warnings) == 0 {
 		t.Error("High humidity should generate warnings")
 	}
 	
 	// No warnings
-	condition3 := assessRunningCondition(20, 20, 50, 2, 0, 1)
+	condition3 := running.AssessRunningCondition(20, 20, 50, 2, 0, 1)
 	if len(condition3.Warnings) > 0 {
 		t.Error("Perfect conditions should not generate warnings")
 	}

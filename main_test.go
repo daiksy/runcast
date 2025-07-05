@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"weather-cli/internal/weather"
 )
 
 func TestGetCityCoordinate(t *testing.T) {
@@ -51,7 +52,7 @@ func TestGetCityCoordinate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			coord, err := getCityCoordinate(tt.city)
+			coord, err := weather.GetCityCoordinate(tt.city)
 
 			if tt.expectError {
 				if err == nil {
@@ -99,7 +100,7 @@ func TestGetWeatherDescription(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
-			result := getWeatherDescription(tt.code)
+			result := weather.GetWeatherDescription(tt.code)
 			if result != tt.expected {
 				t.Errorf("Expected %s for code %d, got %s", tt.expected, tt.code, result)
 			}
@@ -147,7 +148,7 @@ func TestFormatDate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatDate(tt.input)
+			result := weather.FormatDate(tt.input)
 			if result != tt.expected {
 				t.Errorf("Expected %s, got %s", tt.expected, result)
 			}
@@ -158,18 +159,18 @@ func TestFormatDate(t *testing.T) {
 // Benchmark tests
 func BenchmarkGetCityCoordinate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		getCityCoordinate("tokyo")
+		weather.GetCityCoordinate("tokyo")
 	}
 }
 
 func BenchmarkGetWeatherDescription(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		getWeatherDescription(1)
+		weather.GetWeatherDescription(1)
 	}
 }
 
 func BenchmarkFormatDate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		formatDate("2025-07-04")
+		weather.FormatDate("2025-07-04")
 	}
 }

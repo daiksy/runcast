@@ -2,10 +2,13 @@ package main
 
 import (
 	"testing"
+	"weather-cli/internal/running"
+	"weather-cli/internal/types"
+	"weather-cli/internal/weather"
 )
 
 func TestGetTimePeriods(t *testing.T) {
-	periods := getTimePeriods()
+	periods := weather.GetTimePeriods()
 	
 	expectedPeriods := map[string]struct {
 		displayName string
@@ -55,7 +58,7 @@ func TestExtractHour(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			result := extractHour(tt.input)
+			result := weather.ExtractHour(tt.input)
 			if result != tt.expected {
 				t.Errorf("Expected %s, got %s", tt.expected, result)
 			}
@@ -65,42 +68,30 @@ func TestExtractHour(t *testing.T) {
 
 func TestExtractTimeBasedWeather(t *testing.T) {
 	// Create mock weather data
-	weather := &WeatherData{
-		Hourly: struct {
-			Time           []string  `json:"time"`
-			Temperature    []float64 `json:"temperature_2m"`
-			ApparentTemp   []float64 `json:"apparent_temperature"`
-			Humidity       []int     `json:"relative_humidity_2m"`
-			WindSpeed      []float64 `json:"wind_speed_10m"`
-			WindDirection  []float64 `json:"wind_direction_10m"`
-			WeatherCode    []int     `json:"weather_code"`
-			Precipitation  []float64 `json:"precipitation"`
-		}{
-			Time:          make([]string, 24),
-			Temperature:   make([]float64, 24),
-			ApparentTemp:  make([]float64, 24),
-			Humidity:      make([]int, 24),
-			WindSpeed:     make([]float64, 24),
-			WindDirection: make([]float64, 24),
-			WeatherCode:   make([]int, 24),
-			Precipitation: make([]float64, 24),
-		},
-	}
+	weatherData := &types.WeatherData{}
+	weatherData.Hourly.Time = make([]string, 24)
+	weatherData.Hourly.Temperature = make([]float64, 24)
+	weatherData.Hourly.ApparentTemp = make([]float64, 24)
+	weatherData.Hourly.Humidity = make([]int, 24)
+	weatherData.Hourly.WindSpeed = make([]float64, 24)
+	weatherData.Hourly.WindDirection = make([]float64, 24)
+	weatherData.Hourly.WeatherCode = make([]int, 24)
+	weatherData.Hourly.Precipitation = make([]float64, 24)
 	
 	// Fill with mock data for 24 hours
 	for i := 0; i < 24; i++ {
-		weather.Hourly.Time[i] = "2025-07-04T" + formatHour(i) + ":00"
-		weather.Hourly.Temperature[i] = 20.0 + float64(i)
-		weather.Hourly.ApparentTemp[i] = 22.0 + float64(i)
-		weather.Hourly.Humidity[i] = 50 + i
-		weather.Hourly.WindSpeed[i] = 2.0 + float64(i)*0.1
-		weather.Hourly.WindDirection[i] = float64(i * 15)
-		weather.Hourly.WeatherCode[i] = 1
-		weather.Hourly.Precipitation[i] = 0.0
+		weatherData.Hourly.Time[i] = "2025-07-04T" + formatHour(i) + ":00"
+		weatherData.Hourly.Temperature[i] = 20.0 + float64(i)
+		weatherData.Hourly.ApparentTemp[i] = 22.0 + float64(i)
+		weatherData.Hourly.Humidity[i] = 50 + i
+		weatherData.Hourly.WindSpeed[i] = 2.0 + float64(i)*0.1
+		weatherData.Hourly.WindDirection[i] = float64(i * 15)
+		weatherData.Hourly.WeatherCode[i] = 1
+		weatherData.Hourly.Precipitation[i] = 0.0
 	}
 	
 	// Test morning period (5-9)
-	morningData := extractTimeBasedWeather(weather, "morning", 1)
+	morningData := weather.ExtractTimeBasedWeather(weatherData, "morning", 1)
 	expectedMorningHours := 5
 	if len(morningData) != expectedMorningHours {
 		t.Errorf("Expected %d morning hours, got %d", expectedMorningHours, len(morningData))
@@ -115,14 +106,14 @@ func TestExtractTimeBasedWeather(t *testing.T) {
 	}
 	
 	// Test evening period (17-19)
-	eveningData := extractTimeBasedWeather(weather, "evening", 1)
+	eveningData := weather.ExtractTimeBasedWeather(weatherData, "evening", 1)
 	expectedEveningHours := 3
 	if len(eveningData) != expectedEveningHours {
 		t.Errorf("Expected %d evening hours, got %d", expectedEveningHours, len(eveningData))
 	}
 	
 	// Test invalid time period
-	invalidData := extractTimeBasedWeather(weather, "invalid", 1)
+	invalidData := weather.ExtractTimeBasedWeather(weatherData, "invalid", 1)
 	if invalidData != nil {
 		t.Error("Expected nil for invalid time period")
 	}
@@ -133,14 +124,14 @@ func TestTimeBasedWeatherValidation(t *testing.T) {
 	invalidTimes := []string{"afternoon", "midnight", "dawn", "invalid", ""}
 	
 	for _, validTime := range validTimes {
-		periods := getTimePeriods()
+		periods := weather.GetTimePeriods()
 		if _, exists := periods[validTime]; !exists {
 			t.Errorf("Valid time %s should exist in periods", validTime)
 		}
 	}
 	
 	for _, invalidTime := range invalidTimes {
-		periods := getTimePeriods()
+		periods := weather.GetTimePeriods()
 		if _, exists := periods[invalidTime]; exists {
 			t.Errorf("Invalid time %s should not exist in periods", invalidTime)
 		}
@@ -149,44 +140,32 @@ func TestTimeBasedWeatherValidation(t *testing.T) {
 
 func TestTimeBasedRunningRecommendation(t *testing.T) {
 	// Create weather data with varying conditions for different hours
-	weather := &WeatherData{
-		Hourly: struct {
-			Time           []string  `json:"time"`
-			Temperature    []float64 `json:"temperature_2m"`
-			ApparentTemp   []float64 `json:"apparent_temperature"`
-			Humidity       []int     `json:"relative_humidity_2m"`
-			WindSpeed      []float64 `json:"wind_speed_10m"`
-			WindDirection  []float64 `json:"wind_direction_10m"`
-			WeatherCode    []int     `json:"weather_code"`
-			Precipitation  []float64 `json:"precipitation"`
-		}{
-			Time:          make([]string, 24),
-			Temperature:   make([]float64, 24),
-			ApparentTemp:  make([]float64, 24),
-			Humidity:      make([]int, 24),
-			WindSpeed:     make([]float64, 24),
-			WindDirection: make([]float64, 24),
-			WeatherCode:   make([]int, 24),
-			Precipitation: make([]float64, 24),
-		},
-	}
+	testWeather := &types.WeatherData{}
+	testWeather.Hourly.Time = make([]string, 24)
+	testWeather.Hourly.Temperature = make([]float64, 24)
+	testWeather.Hourly.ApparentTemp = make([]float64, 24)
+	testWeather.Hourly.Humidity = make([]int, 24)
+	testWeather.Hourly.WindSpeed = make([]float64, 24)
+	testWeather.Hourly.WindDirection = make([]float64, 24)
+	testWeather.Hourly.WeatherCode = make([]int, 24)
+	testWeather.Hourly.Precipitation = make([]float64, 24)
 	
 	// Set up data where hour 6 has better conditions than hour 8
 	for i := 0; i < 24; i++ {
-		weather.Hourly.Time[i] = "2025-07-04T" + formatHour(i) + ":00"
-		weather.Hourly.Temperature[i] = 20.0
-		weather.Hourly.ApparentTemp[i] = 22.0
-		weather.Hourly.Humidity[i] = 60
-		weather.Hourly.WindSpeed[i] = 2.0
-		weather.Hourly.WindDirection[i] = 180.0
-		weather.Hourly.WeatherCode[i] = 1
-		weather.Hourly.Precipitation[i] = 0.0
+		testWeather.Hourly.Time[i] = "2025-07-04T" + formatHour(i) + ":00"
+		testWeather.Hourly.Temperature[i] = 20.0
+		testWeather.Hourly.ApparentTemp[i] = 22.0
+		testWeather.Hourly.Humidity[i] = 60
+		testWeather.Hourly.WindSpeed[i] = 2.0
+		testWeather.Hourly.WindDirection[i] = 180.0
+		testWeather.Hourly.WeatherCode[i] = 1
+		testWeather.Hourly.Precipitation[i] = 0.0
 	}
 	
 	// Make hour 8 have worse conditions (higher humidity)
-	weather.Hourly.Humidity[8] = 90 // High humidity should lower score
+	testWeather.Hourly.Humidity[8] = 90 // High humidity should lower score
 	
-	morningData := extractTimeBasedWeather(weather, "morning", 1)
+	morningData := weather.ExtractTimeBasedWeather(testWeather, "morning", 1)
 	if len(morningData) == 0 {
 		t.Fatal("No morning data extracted")
 	}
@@ -196,7 +175,7 @@ func TestTimeBasedRunningRecommendation(t *testing.T) {
 	worstScore := 101
 	
 	for _, data := range morningData {
-		condition := assessRunningCondition(
+		condition := running.AssessRunningCondition(
 			data.Temperature,
 			data.ApparentTemp,
 			float64(data.Humidity),

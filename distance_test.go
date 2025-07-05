@@ -2,38 +2,46 @@ package main
 
 import (
 	"testing"
+	"weather-cli/internal/running"
 )
 
 func TestGetDistanceCategories(t *testing.T) {
-	categories := getDistanceCategories()
+	categories := running.GetDistanceCategories()
 	
 	expectedCategories := []string{"5k", "10k", "half", "full"}
 	
+	categoriesMap := make(map[string]bool)
+	for _, cat := range categories {
+		categoriesMap[cat.Key] = true
+	}
+	
 	for _, expected := range expectedCategories {
-		if _, exists := categories[expected]; !exists {
+		if !categoriesMap[expected] {
 			t.Errorf("Expected distance category %s not found", expected)
 		}
 	}
 	
 	// Test 5k category (should have no penalties)
-	if category, exists := categories["5k"]; exists {
-		if category.TempPenalty != 0 || category.HumidityPenalty != 0 || category.WindPenalty != 0 {
+	category5k := running.GetDistanceCategory("5k")
+	if category5k != nil {
+		if category5k.TempPenalty != 0 || category5k.HumidityPenalty != 0 || category5k.WindPenalty != 0 {
 			t.Errorf("5k category should have no penalties, got temp=%d, humidity=%d, wind=%d", 
-				category.TempPenalty, category.HumidityPenalty, category.WindPenalty)
+				category5k.TempPenalty, category5k.HumidityPenalty, category5k.WindPenalty)
 		}
-		if category.DisplayName != "5キロ" {
-			t.Errorf("Expected 5k display name '5キロ', got '%s'", category.DisplayName)
+		if category5k.DisplayName != "5キロ" {
+			t.Errorf("Expected 5k display name '5キロ', got '%s'", category5k.DisplayName)
 		}
 	}
 	
 	// Test full marathon category (should have highest penalties)
-	if category, exists := categories["full"]; exists {
-		if category.TempPenalty <= 0 || category.HumidityPenalty <= 0 || category.WindPenalty <= 0 {
+	categoryFull := running.GetDistanceCategory("full")
+	if categoryFull != nil {
+		if categoryFull.TempPenalty <= 0 || categoryFull.HumidityPenalty <= 0 || categoryFull.WindPenalty <= 0 {
 			t.Errorf("Full marathon category should have penalties, got temp=%d, humidity=%d, wind=%d", 
-				category.TempPenalty, category.HumidityPenalty, category.WindPenalty)
+				categoryFull.TempPenalty, categoryFull.HumidityPenalty, categoryFull.WindPenalty)
 		}
-		if category.DisplayName != "フルマラソン" {
-			t.Errorf("Expected full marathon display name 'フルマラソン', got '%s'", category.DisplayName)
+		if categoryFull.DisplayName != "フルマラソン" {
+			t.Errorf("Expected full marathon display name 'フルマラソン', got '%s'", categoryFull.DisplayName)
 		}
 	}
 }
@@ -54,7 +62,7 @@ func TestGetDistanceCategory(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.distance, func(t *testing.T) {
-			result := getDistanceCategory(tt.distance)
+			result := running.GetDistanceCategory(tt.distance)
 			exists := result != nil
 			if exists != tt.expected {
 				t.Errorf("Expected exists=%v for distance '%s', got %v", tt.expected, tt.distance, exists)
@@ -73,11 +81,11 @@ func TestAssessDistanceBasedRunningCondition(t *testing.T) {
 	weatherCode := 1
 	
 	// Test 5k vs full marathon scoring difference
-	category5k := getDistanceCategory("5k")
-	categoryFull := getDistanceCategory("full")
+	category5k := running.GetDistanceCategory("5k")
+	categoryFull := running.GetDistanceCategory("full")
 	
-	condition5k := assessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, category5k)
-	conditionFull := assessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, categoryFull)
+	condition5k := running.AssessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, category5k)
+	conditionFull := running.AssessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, categoryFull)
 	
 	// Full marathon should have lower score due to penalties
 	if conditionFull.Score >= condition5k.Score {
@@ -103,8 +111,8 @@ func TestDistanceSpecificWarnings(t *testing.T) {
 	precipitation := 0.0
 	weatherCode := 1
 	
-	categoryFull := getDistanceCategory("full")
-	condition := assessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, categoryFull)
+	categoryFull := running.GetDistanceCategory("full")
+	condition := running.AssessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, categoryFull)
 	
 	// Should have full marathon specific warning
 	hasFullMarathonWarning := false
@@ -136,11 +144,11 @@ func TestDistanceSpecificClothing(t *testing.T) {
 	precipitation := 0.0
 	weatherCode := 1
 	
-	category5k := getDistanceCategory("5k")
-	categoryHalf := getDistanceCategory("half")
+	category5k := running.GetDistanceCategory("5k")
+	categoryHalf := running.GetDistanceCategory("half")
 	
-	condition5k := assessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, category5k)
-	conditionHalf := assessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, categoryHalf)
+	condition5k := running.AssessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, category5k)
+	conditionHalf := running.AssessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, categoryHalf)
 	
 	// Half marathon should have additional gear recommendations
 	has5kHydration := false
@@ -180,8 +188,8 @@ func TestDistancePenalties(t *testing.T) {
 	var scores []int
 	
 	for _, distance := range distances {
-		category := getDistanceCategory(distance)
-		condition := assessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, category)
+		category := running.GetDistanceCategory(distance)
+		condition := running.AssessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, category)
 		scores = append(scores, condition.Score)
 	}
 	
@@ -203,8 +211,8 @@ func TestNilDistanceCategory(t *testing.T) {
 	precipitation := 0.0
 	weatherCode := 1
 	
-	condition := assessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, nil)
-	baseCondition := assessRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode)
+	condition := running.AssessDistanceBasedRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode, nil)
+	baseCondition := running.AssessRunningCondition(temp, apparentTemp, humidity, windSpeed, precipitation, weatherCode)
 	
 	// Should behave the same as base assessment when distance category is nil
 	if condition.Score != baseCondition.Score {
