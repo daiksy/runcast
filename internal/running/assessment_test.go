@@ -25,8 +25,8 @@ func TestRunningRecommendationWithWarnings(t *testing.T) {
 			windSpeed:            2.0,
 			precipitation:        0.0,
 			weatherCode:          0,
-			expectedLevel:        "注意",
-			expectedRecommendation: "警告事項があります。ランニングは控えめに",
+			expectedLevel:        "普通",
+			expectedRecommendation: "注意事項を確認してからランニングしてください",
 			expectWarnings:       true,
 		},
 		{
