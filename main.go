@@ -38,8 +38,18 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Determine required forecast days
+	requiredDays := *days
+	if *dateSpec != "" {
+		dayOffset := weather.GetDateOffset(*dateSpec)
+		// Ensure we have enough data for the requested date
+		if requiredDays <= dayOffset {
+			requiredDays = dayOffset + 1
+		}
+	}
+	
 	// Get weather data
-	weatherData, err := weather.GetWeather(coord.Lat, coord.Lon, *days)
+	weatherData, err := weather.GetWeather(coord.Lat, coord.Lon, requiredDays)
 	if err != nil {
 		log.Fatal(err)
 	}
