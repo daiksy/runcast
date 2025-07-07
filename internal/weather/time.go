@@ -1,7 +1,7 @@
 package weather
 
 import (
-	"rancast/internal/types"
+	"runcast/internal/types"
 )
 
 // GetTimePeriods returns all available time periods

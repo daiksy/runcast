@@ -2,7 +2,7 @@ package main
 
 import (
 	"testing"
-	"rancast/internal/weather"
+	"runcast/internal/weather"
 )
 
 // Integration tests for API calls
