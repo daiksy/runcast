@@ -21,22 +21,22 @@ func TestGetWeatherIntegration(t *testing.T) {
 		days int
 	}{
 		{
-			name: "Tokyo current weather",
+			name: "Tokyo running weather (1 day)",
 			lat:  35.6762,
 			lon:  139.6503,
-			days: 0,
+			days: 1,
 		},
 		{
-			name: "Tokyo 3-day forecast",
+			name: "Tokyo running forecast (3 days)",
 			lat:  35.6762,
 			lon:  139.6503,
 			days: 3,
 		},
 		{
-			name: "Osaka 7-day forecast",
+			name: "Osaka running forecast (3 days)",
 			lat:  34.6937,
 			lon:  135.5023,
-			days: 7,
+			days: 3,
 		},
 	}
 
@@ -52,23 +52,21 @@ func TestGetWeatherIntegration(t *testing.T) {
 				t.Error("Current weather data appears to be empty")
 			}
 
-			if tt.days > 0 {
-				// Verify daily forecast data is present
-				if len(weatherData.Daily.Time) == 0 {
-					t.Error("Daily forecast data is missing")
-				}
+			// Verify daily forecast data is present (always needed for running forecasts)
+			if len(weatherData.Daily.Time) == 0 {
+				t.Error("Daily forecast data is missing")
+			}
 
-				if len(weatherData.Daily.Time) != len(weatherData.Daily.TemperatureMax) ||
-					len(weatherData.Daily.Time) != len(weatherData.Daily.TemperatureMin) ||
-					len(weatherData.Daily.Time) != len(weatherData.Daily.WeatherCode) {
-					t.Error("Daily forecast data arrays have inconsistent lengths")
-				}
+			if len(weatherData.Daily.Time) != len(weatherData.Daily.TemperatureMax) ||
+				len(weatherData.Daily.Time) != len(weatherData.Daily.TemperatureMin) ||
+				len(weatherData.Daily.Time) != len(weatherData.Daily.WeatherCode) {
+				t.Error("Daily forecast data arrays have inconsistent lengths")
+			}
 
-				// Verify we got at least the requested number of days (or fewer if API limits)
-				expectedDays := tt.days
-				if len(weatherData.Daily.Time) < expectedDays {
-					t.Logf("Warning: Expected %d days, got %d days", expectedDays, len(weatherData.Daily.Time))
-				}
+			// Verify we got at least the requested number of days (or fewer if API limits)
+			expectedDays := tt.days
+			if len(weatherData.Daily.Time) < expectedDays {
+				t.Logf("Warning: Expected %d days, got %d days", expectedDays, len(weatherData.Daily.Time))
 			}
 
 			// Verify weather codes are valid
@@ -95,7 +93,7 @@ func TestGetWeatherWithInvalidCoordinates(t *testing.T) {
 	}
 
 	// Test with coordinates that are way out of range
-	_, err := weather.GetWeather(999.0, 999.0, 0)
+	_, err := weather.GetWeather(999.0, 999.0, 1)
 	
 	// The API might still return data or give an error
 	// We mainly want to ensure our code doesn't crash
