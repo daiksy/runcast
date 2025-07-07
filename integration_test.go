@@ -20,17 +20,12 @@ func TestGetWeatherIntegration(t *testing.T) {
 		lon  float64
 	}{
 		{
-			name: "Tokyo running weather (1 day)",
+			name: "Tokyo running weather",
 			lat:  35.6762,
 			lon:  139.6503,
 		},
 		{
-			name: "Tokyo running forecast (3 days)",
-			lat:  35.6762,
-			lon:  139.6503,
-		},
-		{
-			name: "Osaka running forecast (3 days)",
+			name: "Osaka running weather",
 			lat:  34.6937,
 			lon:  135.5023,
 		},
