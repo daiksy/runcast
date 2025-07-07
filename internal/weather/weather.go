@@ -34,35 +34,24 @@ func GetCityCoordinate(city string) (*types.CityCoordinate, error) {
 }
 
 // GetWeather fetches weather data from API
-func GetWeather(lat, lon float64, days int) (*types.WeatherData, error) {
+func GetWeather(lat, lon float64) (*types.WeatherData, error) {
 	forecastDays := 1
-	if days > 0 {
-		forecastDays = days
-	}
 	
 	var url string
 	currentParams := "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation,dewpoint_2m"
 	dailyParams := "temperature_2m_max,temperature_2m_min,weather_code,wind_speed_10m_max,precipitation_sum"
 	hourlyParams := "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation"
 	
-	if days == 0 {
-		// 現在の天気のみ
-		url = fmt.Sprintf("%s?latitude=%s&longitude=%s&current=%s&timezone=Asia/Tokyo", 
-			apiURL, 
-			strconv.FormatFloat(lat, 'f', 4, 64), 
-			strconv.FormatFloat(lon, 'f', 4, 64),
-			currentParams)
-	} else {
-		// 予報データ
-		url = fmt.Sprintf("%s?latitude=%s&longitude=%s&current=%s&daily=%s&hourly=%s&timezone=Asia/Tokyo&forecast_days=%d", 
-			apiURL, 
-			strconv.FormatFloat(lat, 'f', 4, 64), 
-			strconv.FormatFloat(lon, 'f', 4, 64),
-			currentParams,
-			dailyParams,
-			hourlyParams,
-			forecastDays)
-	}
+
+	// 予報データ
+	url = fmt.Sprintf("%s?latitude=%s&longitude=%s&current=%s&daily=%s&hourly=%s&timezone=Asia/Tokyo&forecast_days=%d", 
+		apiURL, 
+		strconv.FormatFloat(lat, 'f', 4, 64), 
+		strconv.FormatFloat(lon, 'f', 4, 64),
+		currentParams,
+		dailyParams,
+		hourlyParams,
+		forecastDays)
 	
 	client := &http.Client{
 		Timeout: 10 * time.Second,
