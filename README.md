@@ -1,6 +1,6 @@
-# Running Weather CLI
+# Rancast
 
-Go言語で作られた**ランニング特化**の天気予報CLIツールです。
+Go言語で作られた**ランニング特化**の天気予報CLIツール「**Rancast**（ランキャスト）」です。
 
 ## 機能
 
@@ -16,32 +16,32 @@ Go言語で作られた**ランニング特化**の天気予報CLIツールで�
 ### インストール
 
 ```bash
-go build -o weather-cli
+go build -o rancast
 ```
 
 ### 基本的な使用方法
 
 ```bash
 # 🏃‍♂️ 東京の現在のランニング情報を取得
-./weather-cli -city tokyo
+./rancast -city tokyo
 
 # ⏰ 東京の早朝時間帯のランニング情報を取得
-./weather-cli -city tokyo -time morning
+./rancast -city tokyo -time morning
 
 # 📅 明日の東京のランニング情報を取得
-./weather-cli -city tokyo -date tomorrow
+./rancast -city tokyo -date tomorrow
 
 # 📅 明後日の札幌の早朝ランニング情報を取得
-./weather-cli -city sapporo -date day-after-tomorrow -time morning
+./rancast -city sapporo -date day-after-tomorrow -time morning
 
 # 🏃‍♂️ 距離別推奨: フルマラソン用の天気評価
-./weather-cli -city tokyo -distance full
+./rancast -city tokyo -distance full
 
 # 🏃‍♂️ 距離別推奨: 10km用の明日の天気評価
-./weather-cli -city osaka -distance 10k -date tomorrow
+./rancast -city osaka -distance 10k -date tomorrow
 
 # ⏰ 大阪の夕方時間帯のハーフマラソン用情報
-./weather-cli -city osaka -time evening -distance half
+./rancast -city osaka -time evening -distance half
 ```
 
 ### オプション
