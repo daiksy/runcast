@@ -38,38 +38,6 @@ func DisplayCurrentWeather(weatherData *types.WeatherData, cityName string) {
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 }
 
-// DisplayForecastWeather displays forecast weather information
-func DisplayForecastWeather(weatherData *types.WeatherData, cityName string, days int) {
-	fmt.Printf("🌤️ %s の%d日間天気予報\n", cityName, days)
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	
-	// Current weather
-	fmt.Printf("📅 現在: %.1f°C | %s\n", weatherData.Current.Temperature, weather.GetWeatherDescription(weatherData.Current.WeatherCode))
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	
-	// Daily forecast
-	for i := 0; i < len(weatherData.Daily.Time) && i < days; i++ {
-		date := weatherData.Daily.Time[i]
-		maxTemp := weatherData.Daily.TemperatureMax[i]
-		minTemp := weatherData.Daily.TemperatureMin[i]
-		weatherCode := weatherData.Daily.WeatherCode[i]
-		precipitation := weatherData.Daily.PrecipitationSum[i]
-		
-		fmt.Printf("📅 %s\n", weather.FormatDate(date))
-		fmt.Printf("   🌡️ %.1f°C〜%.1f°C\n", minTemp, maxTemp)
-		fmt.Printf("   ☁️ %s\n", weather.GetWeatherDescription(weatherCode))
-		if precipitation > 0 {
-			fmt.Printf("   🌧️ 降水量: %.1f mm\n", precipitation)
-		}
-		
-		if i < len(weatherData.Daily.Time)-1 && i < days-1 {
-			fmt.Printf("   ────────────────────────────\n")
-		}
-	}
-	
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-}
-
 // DisplayRunningWeatherWithDistance displays running weather with distance consideration
 func DisplayRunningWeatherWithDistance(weatherData *types.WeatherData, cityName string, distanceCategory *types.DistanceCategory) {
 	var condition types.RunningCondition
