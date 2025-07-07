@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 	"runcast/internal/types"
@@ -11,28 +12,40 @@ import (
 
 const apiURL = "https://api.open-meteo.com/v1/jma"
 
+// Cities holds all supported cities
+var Cities = map[string]types.CityCoordinate{
+	"tokyo":    {"東京", 35.6762, 139.6503},
+	"osaka":    {"大阪", 34.6937, 135.5023},
+	"kyoto":    {"京都", 35.0116, 135.7681},
+	"yokohama": {"横浜", 35.4437, 139.6380},
+	"nagoya":   {"名古屋", 35.1815, 136.9066},
+	"sapporo":  {"札幌", 43.0642, 141.3469},
+	"fukuoka":  {"福岡", 33.5904, 130.4017},
+	"sendai":   {"仙台", 38.2682, 140.8694},
+	"hiroshima":{"広島", 34.3853, 132.4553},
+	"naha":     {"那覇", 26.2124, 127.6792},
+	"kobe":     {"神戸", 34.6901, 135.1956},
+	"shiga":    {"滋賀", 35.0044, 135.8686},
+}
+
+// GetSupportedCities returns a list of all supported city names
+func GetSupportedCities() []string {
+	cities := make([]string, 0, len(Cities))
+	for key := range Cities {
+		cities = append(cities, key)
+	}
+	sort.Strings(cities)
+	return cities
+}
+
 // GetCityCoordinate returns city coordinates by city name
 func GetCityCoordinate(city string) (*types.CityCoordinate, error) {
-	cities := map[string]types.CityCoordinate{
-		"tokyo":    {"東京", 35.6762, 139.6503},
-		"osaka":    {"大阪", 34.6937, 135.5023},
-		"kyoto":    {"京都", 35.0116, 135.7681},
-		"yokohama": {"横浜", 35.4437, 139.6380},
-		"nagoya":   {"名古屋", 35.1815, 136.9066},
-		"sapporo":  {"札幌", 43.0642, 141.3469},
-		"fukuoka":  {"福岡", 33.5904, 130.4017},
-		"sendai":   {"仙台", 38.2682, 140.8694},
-		"hiroshima":{"広島", 34.3853, 132.4553},
-		"naha":     {"那覇", 26.2124, 127.6792},
-		"kobe":     {"神戸", 34.6901, 135.1956},
-		"shiga":    {"滋賀", 35.0044, 135.8686},
-	}
-	
-	if coord, exists := cities[city]; exists {
+	if coord, exists := Cities[city]; exists {
 		return &coord, nil
 	}
 	
-	return nil, fmt.Errorf("都市が見つかりません: %s", city)
+	supportedCities := GetSupportedCities()
+	return nil, fmt.Errorf("都市が見つかりません: %s\n対応都市: %v", city, supportedCities)
 }
 
 // GetWeather fetches weather data from API
