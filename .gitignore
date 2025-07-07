@@ -17,6 +17,10 @@
 # Go workspace file
 go.work
 
+# Application-specific binaries
+runcast
+weather-cli
+
 # IDE files
 .vscode/
 .idea/
@@ -32,10 +36,3 @@ go.work
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Project specific - compiled binary
-weather-cli
-
-# Temporary files
-*.tmp
-*.temp
