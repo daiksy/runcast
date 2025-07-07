@@ -2,7 +2,7 @@ package weather
 
 import (
 	"testing"
-	"rancast/internal/types"
+	"runcast/internal/types"
 )
 
 func TestGetTimePeriods(t *testing.T) {

@@ -1,7 +1,7 @@
 package running
 
 import (
-	"rancast/internal/types"
+	"runcast/internal/types"
 )
 
 // DistanceCategory is an alias for types.DistanceCategory for backward compatibility

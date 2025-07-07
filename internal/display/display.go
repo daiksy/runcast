@@ -2,9 +2,9 @@ package display
 
 import (
 	"fmt"
-	"rancast/internal/running"
-	"rancast/internal/types"
-	"rancast/internal/weather"
+	"runcast/internal/running"
+	"runcast/internal/types"
+	"runcast/internal/weather"
 )
 
 // GetRunningTempIcon returns temperature icon for running

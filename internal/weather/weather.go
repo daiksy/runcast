@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"rancast/internal/types"
+	"runcast/internal/types"
 )
 
 const apiURL = "https://api.open-meteo.com/v1/jma"
