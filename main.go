@@ -45,6 +45,13 @@ func main() {
 		return
 	}
 
+	// Validate time specification if provided
+	if *timeOfDay != "" && !weather.ValidateTimeSpec(*timeOfDay) {
+		fmt.Printf("無効な時間指定です: %s\n", *timeOfDay)
+		fmt.Println("有効な時間: morning, noon, evening, night")
+		return
+	}
+
 	// Determine required forecast days
 	requiredDays := *days
 	if *dateSpec != "" {

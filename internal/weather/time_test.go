@@ -331,3 +331,66 @@ func TestValidateDateSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateTimeSpec(t *testing.T) {
+	tests := []struct {
+		name     string
+		timeSpec string
+		expected bool
+	}{
+		{
+			name:     "valid_morning",
+			timeSpec: "morning",
+			expected: true,
+		},
+		{
+			name:     "valid_noon",
+			timeSpec: "noon",
+			expected: true,
+		},
+		{
+			name:     "valid_evening",
+			timeSpec: "evening",
+			expected: true,
+		},
+		{
+			name:     "valid_night",
+			timeSpec: "night",
+			expected: true,
+		},
+		{
+			name:     "invalid_afternoon",
+			timeSpec: "afternoon",
+			expected: false,
+		},
+		{
+			name:     "invalid_dawn",
+			timeSpec: "dawn",
+			expected: false,
+		},
+		{
+			name:     "invalid_midnight",
+			timeSpec: "midnight",
+			expected: false,
+		},
+		{
+			name:     "invalid_empty",
+			timeSpec: "",
+			expected: false,
+		},
+		{
+			name:     "invalid_random",
+			timeSpec: "invalid-time",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateTimeSpec(tt.timeSpec)
+			if result != tt.expected {
+				t.Errorf("Expected %v for timeSpec '%s', got %v", tt.expected, tt.timeSpec, result)
+			}
+		})
+	}
+}

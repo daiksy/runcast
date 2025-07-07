@@ -169,6 +169,13 @@ func ValidateDateSpec(dateSpec string) bool {
 	return false
 }
 
+// ValidateTimeSpec validates if the time specification is valid
+func ValidateTimeSpec(timeSpec string) bool {
+	periods := GetTimePeriods()
+	_, exists := periods[timeSpec]
+	return exists
+}
+
 // safeStringSlice safely accesses string slice and returns slice with single element or empty slice
 func safeStringSlice(slice []string, index int) []string {
 	if len(slice) > index {
