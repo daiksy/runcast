@@ -2,9 +2,9 @@ package display
 
 import (
 	"fmt"
-	"weather-cli/internal/running"
-	"weather-cli/internal/types"
-	"weather-cli/internal/weather"
+	"rancast/internal/running"
+	"rancast/internal/types"
+	"rancast/internal/weather"
 )
 
 // DisplayRunningForecastWithDistance displays running forecast with distance consideration

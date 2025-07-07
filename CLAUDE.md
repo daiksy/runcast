@@ -12,7 +12,7 @@ From this point forward, development should follow a pull request-based workflow
 ## Project Structure
 
 - `main.go` - Main application with CLI interface
-- `weather-cli` - Compiled binary
+- `rancast` - Compiled binary
 - `go.mod` - Go module definition
 - `README.md` - User documentation
 

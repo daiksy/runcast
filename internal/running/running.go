@@ -1,7 +1,7 @@
 package running
 
 import (
-	"weather-cli/internal/types"
+	"rancast/internal/types"
 )
 
 // DistanceCategory is an alias for types.DistanceCategory for backward compatibility

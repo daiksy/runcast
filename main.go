@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 
-	"weather-cli/internal/display"
-	"weather-cli/internal/running"
-	"weather-cli/internal/types"
-	"weather-cli/internal/weather"
+	"rancast/internal/display"
+	"rancast/internal/running"
+	"rancast/internal/types"
+	"rancast/internal/weather"
 )
 
 func main() {
