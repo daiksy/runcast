@@ -158,6 +158,17 @@ func GetDateOffset(dateSpec string) int {
 	}
 }
 
+// ValidateDateSpec validates if the date specification is valid
+func ValidateDateSpec(dateSpec string) bool {
+	validDates := []string{"today", "tomorrow", "day-after-tomorrow"}
+	for _, valid := range validDates {
+		if dateSpec == valid {
+			return true
+		}
+	}
+	return false
+}
+
 // safeStringSlice safely accesses string slice and returns slice with single element or empty slice
 func safeStringSlice(slice []string, index int) []string {
 	if len(slice) > index {

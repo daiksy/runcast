@@ -278,3 +278,56 @@ func TestExtractDateBasedWeather(t *testing.T) {
 		t.Errorf("Expected date 2025-07-06, got %s", result.Daily.Time[0])
 	}
 }
+
+func TestValidateDateSpec(t *testing.T) {
+	tests := []struct {
+		name     string
+		dateSpec string
+		expected bool
+	}{
+		{
+			name:     "valid_today",
+			dateSpec: "today",
+			expected: true,
+		},
+		{
+			name:     "valid_tomorrow",
+			dateSpec: "tomorrow",
+			expected: true,
+		},
+		{
+			name:     "valid_day_after_tomorrow",
+			dateSpec: "day-after-tomorrow",
+			expected: true,
+		},
+		{
+			name:     "invalid_yesterday",
+			dateSpec: "yesterday",
+			expected: false,
+		},
+		{
+			name:     "invalid_next_week",
+			dateSpec: "next-week",
+			expected: false,
+		},
+		{
+			name:     "invalid_empty",
+			dateSpec: "",
+			expected: false,
+		},
+		{
+			name:     "invalid_random",
+			dateSpec: "invalid-date",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateDateSpec(tt.dateSpec)
+			if result != tt.expected {
+				t.Errorf("Expected %v for dateSpec '%s', got %v", tt.expected, tt.dateSpec, result)
+			}
+		})
+	}
+}

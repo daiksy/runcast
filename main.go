@@ -38,6 +38,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Validate date specification if provided
+	if *dateSpec != "" && !weather.ValidateDateSpec(*dateSpec) {
+		fmt.Printf("無効な日付指定です: %s\n", *dateSpec)
+		fmt.Println("有効な日付: today, tomorrow, day-after-tomorrow")
+		return
+	}
+
 	// Determine required forecast days
 	requiredDays := *days
 	if *dateSpec != "" {
