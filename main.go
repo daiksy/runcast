@@ -13,8 +13,6 @@ import (
 
 func main() {
 	city := flag.String("city", "tokyo", "都市名を指定")
-	days := flag.Int("days", 0, "予報日数を指定 (0は現在の天気のみ)")
-	runningMode := flag.Bool("running", false, "ランニング向け情報を表示")
 	timeOfDay := flag.String("time", "", "時間帯を指定 (morning, noon, evening, night)")
 	dateSpec := flag.String("date", "", "日付を指定 (today, tomorrow, day-after-tomorrow)")
 	distanceFlag := flag.String("distance", "", "目標距離を指定 (5k, 10k, half, full)")
@@ -29,7 +27,6 @@ func main() {
 			fmt.Println("有効な距離: 5k, 10k, half, full")
 			return
 		}
-		*runningMode = true // Auto-enable running mode
 	}
 
 	// Get city coordinates
@@ -53,16 +50,13 @@ func main() {
 	}
 
 	// Determine required forecast days
-	requiredDays := *days
+	requiredDays := 1 // Default to 1 day for running forecasts
 	if *dateSpec != "" {
 		dayOffset := weather.GetDateOffset(*dateSpec)
 		// Ensure we have enough data for the requested date
 		if requiredDays <= dayOffset {
 			requiredDays = dayOffset + 1
 		}
-	} else if *timeOfDay != "" && requiredDays == 0 {
-		// Time-specific queries need at least 1 day of forecast data for hourly data
-		requiredDays = 1
 	}
 	
 	// Get weather data
@@ -71,43 +65,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Display logic
+	// Display logic - always in running mode
 	if *dateSpec != "" {
 		dayOffset := weather.GetDateOffset(*dateSpec)
 		
 		if *timeOfDay != "" {
-			// Date + time specific weather
-			if *runningMode {
-				display.DisplayDateTimeBasedRunningWeatherWithDistance(weatherData, coord.Name, *dateSpec, *timeOfDay, dayOffset, distanceCategory)
-			} else {
-				display.DisplayDateTimeBasedWeather(weatherData, coord.Name, *dateSpec, *timeOfDay, dayOffset)
-			}
+			// Date + time specific running weather
+			display.DisplayDateTimeBasedRunningWeatherWithDistance(weatherData, coord.Name, *dateSpec, *timeOfDay, dayOffset, distanceCategory)
 		} else {
-			// Date specific weather (full day)
-			if *runningMode {
-				display.DisplayDateBasedRunningWeatherWithDistance(weatherData, coord.Name, *dateSpec, dayOffset, distanceCategory)
-			} else {
-				display.DisplayDateBasedWeather(weatherData, coord.Name, *dateSpec, dayOffset)
-			}
+			// Date specific running weather (full day)
+			display.DisplayDateBasedRunningWeatherWithDistance(weatherData, coord.Name, *dateSpec, dayOffset, distanceCategory)
 		}
 	} else if *timeOfDay != "" {
-		// Time-specific weather
-		if *runningMode {
-			display.DisplayTimeBasedRunningWeatherWithDistance(weatherData, coord.Name, *timeOfDay, requiredDays, distanceCategory)
-		} else {
-			display.DisplayTimeBasedWeather(weatherData, coord.Name, *timeOfDay, requiredDays)
-		}
-	} else if *runningMode {
-		if *days == 0 {
-			display.DisplayRunningWeatherWithDistance(weatherData, coord.Name, distanceCategory)
-		} else {
-			display.DisplayRunningForecastWithDistance(weatherData, coord.Name, *days, distanceCategory)
-		}
+		// Time-specific running weather
+		display.DisplayTimeBasedRunningWeatherWithDistance(weatherData, coord.Name, *timeOfDay, requiredDays, distanceCategory)
 	} else {
-		if *days == 0 {
-			display.DisplayCurrentWeather(weatherData, coord.Name)
-		} else {
-			display.DisplayForecastWeather(weatherData, coord.Name, *days)
-		}
+		// Current running weather
+		display.DisplayRunningWeatherWithDistance(weatherData, coord.Name, distanceCategory)
 	}
 }
