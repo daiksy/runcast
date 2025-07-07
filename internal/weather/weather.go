@@ -24,6 +24,8 @@ func GetCityCoordinate(city string) (*types.CityCoordinate, error) {
 		"sendai":   {"仙台", 38.2682, 140.8694},
 		"hiroshima":{"広島", 34.3853, 132.4553},
 		"naha":     {"那覇", 26.2124, 127.6792},
+		"kobe":     {"神戸", 34.6901, 135.1956},
+		"shiga":    {"滋賀", 35.0044, 135.8686},
 	}
 	
 	if coord, exists := cities[city]; exists {
