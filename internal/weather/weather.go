@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"time"
+	"runcast/internal/config"
 	"runcast/internal/types"
 )
 
@@ -40,12 +41,37 @@ func GetSupportedCities() []string {
 
 // GetCityCoordinate returns city coordinates by city name
 func GetCityCoordinate(city string) (*types.CityCoordinate, error) {
+	// Check built-in cities first
 	if coord, exists := Cities[city]; exists {
 		return &coord, nil
 	}
 	
+	// Check custom locations from config
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		// If config loading fails, continue with built-in cities only
+		fmt.Printf("警告: 設定ファイルの読み込みに失敗しました: %v\n", err)
+	} else {
+		if coord, exists := cfg.GetCustomLocation(city); exists {
+			return coord, nil
+		}
+	}
+	
+	// Generate error message with all available locations
 	supportedCities := GetSupportedCities()
-	return nil, fmt.Errorf("都市が見つかりません: %s\n対応都市: %v", city, supportedCities)
+	allLocations := make([]string, len(supportedCities))
+	copy(allLocations, supportedCities)
+	
+	if cfg != nil {
+		customLocations := cfg.GetCustomLocationNames()
+		if len(customLocations) > 0 {
+			sort.Strings(customLocations)
+			allLocations = append(allLocations, customLocations...)
+			sort.Strings(allLocations)
+		}
+	}
+	
+	return nil, fmt.Errorf("都市が見つかりません: %s\n対応都市: %v", city, allLocations)
 }
 
 // GetWeather fetches weather data from API

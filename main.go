@@ -39,10 +39,23 @@ func showHelp() {
 	}
 	fmt.Println()
 	fmt.Println()
+	fmt.Println("カスタム位置設定:")
+	fmt.Println("  .runcast.conf ファイルを作成することで任意の位置を追加できます")
+	fmt.Println("  設定ファイルの配置場所（優先順）:")
+	fmt.Println("    1. カレントディレクトリ: .runcast.conf")
+	fmt.Println("    2. ホームディレクトリ: ~/.runcast.conf")
+	fmt.Println("    3. 設定ディレクトリ: ~/.config/runcast/config.toml")
+	fmt.Println()
+	fmt.Println("  設定ファイルの例:")
+	fmt.Println("    [locations]")
+	fmt.Println("    home = { name = \"自宅\", lat = 35.6762, lon = 139.6503 }")
+	fmt.Println("    office = { name = \"会社\", lat = 35.6584, lon = 139.7016 }")
+	fmt.Println()
 	fmt.Println("例:")
 	fmt.Println("  runcast -city=osaka")
 	fmt.Println("  runcast -city=tokyo -time=morning")
 	fmt.Println("  runcast -city=kyoto -date=tomorrow -distance=10k")
+	fmt.Println("  runcast -city=home    # カスタム位置を使用")
 }
 
 func main() {
