@@ -6,6 +6,7 @@ Go言語で作られた**ランニング特化**の天気予報CLIツール「**
 
 - **🏃‍♂️ ランニングに特化した天気情報**（体感温度、コンディション評価、服装提案）
 - 指定した都市のランニング向け天気分析
+- **📍 カスタム位置設定**（自宅・会社など任意の位置を設定可能）
 - 距離別推奨システム（5k, 10k, ハーフ, フル）
 - 時間帯・日付指定によるランニング計画支援
 - Open-Metro のデータを使用
@@ -41,6 +42,9 @@ go build -o runcast
 
 # ⏰ 大阪の夕方時間帯のハーフマラソン用情報
 ./runcast -city osaka -time evening -distance half
+
+# 📍 カスタム位置を使用（要：.runcast.conf設定）
+./runcast -city home -time morning
 ```
 
 ### オプション
@@ -52,16 +56,52 @@ go build -o runcast
 
 ### 対応都市
 
-- tokyo（東京）
-- osaka（大阪）
-- kyoto（京都）
-- yokohama（横浜）
-- nagoya（名古屋）
-- sapporo（札幌）
 - fukuoka（福岡）
-- sendai（仙台）
 - hiroshima（広島）
+- kobe（神戸）
+- kyoto（京都）
+- nagoya（名古屋）
 - naha（那覇）
+- osaka（大阪）
+- sapporo（札幌）
+- sendai（仙台）
+- shiga（滋賀）
+- tokyo（東京）
+- yokohama（横浜）
+
+### カスタム位置設定
+
+プライベートな位置（自宅、会社、よく行く公園など）を設定できます。
+
+#### 設定ファイル
+
+`.runcast.conf` ファイルを作成して任意の位置を設定：
+
+```toml
+[locations]
+home = { name = "自宅", lat = 35.6762, lon = 139.6503 }
+office = { name = "会社", lat = 35.6584, lon = 139.7016 }
+park = { name = "公園", lat = 35.6694, lon = 139.6049 }
+```
+
+#### 設定ファイルの配置場所（優先順）
+
+1. カレントディレクトリ: `.runcast.conf`
+2. ホームディレクトリ: `~/.runcast.conf`  
+3. 設定ディレクトリ: `~/.config/runcast/config.toml`
+
+#### 使用例
+
+```bash
+# カスタム位置を使用
+./runcast -city=home
+./runcast -city=office -time=morning
+./runcast -city=park -date=tomorrow -distance=10k
+```
+
+#### プライバシー保護
+
+設定ファイルは自動的に`.gitignore`に含まれ、誤ってGitリポジトリにコミットされることを防ぎます。
 
 ## データソース
 
