@@ -97,7 +97,7 @@ func DisplayRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, ci
 	}
 
 	// Dust information
-	if dustLevel != nil && dustLevel.Level > 0 {
+	if dustLevel != nil {
 		fmt.Printf("🌫️ 黄砂: %s (%.0f μg/m³)\n", dustLevel.DisplayName, dustLevel.Dust)
 		fmt.Printf("   PM2.5: %.0f μg/m³ / PM10: %.0f μg/m³\n", dustLevel.PM2_5, dustLevel.PM10)
 	}

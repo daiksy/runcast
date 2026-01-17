@@ -83,7 +83,7 @@ func DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.Weathe
 		if data.Precipitation > 0 {
 			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
 		}
-		if dustLevel != nil && dustLevel.Level > 0 {
+		if dustLevel != nil {
 			fmt.Printf(" | 🌫️ %s", dustLevel.DisplayName)
 		}
 		fmt.Printf("\n")
