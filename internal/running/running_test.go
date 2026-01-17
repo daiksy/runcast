@@ -1,6 +1,7 @@
 package running
 
 import (
+	"runcast/internal/types"
 	"testing"
 )
 
@@ -237,5 +238,207 @@ func TestAssessDistanceBasedRunningCondition(t *testing.T) {
 	// Full marathon should have additional warnings
 	if len(conditionFull.Warnings) <= len(condition10k.Warnings) {
 		t.Errorf("Full marathon should have more warnings than 10k")
+	}
+}
+
+func TestGetDustPenalty(t *testing.T) {
+	tests := []struct {
+		name            string
+		dustLevel       *types.DustLevel
+		expectedPenalty int
+	}{
+		{
+			name:            "nil dust level",
+			dustLevel:       nil,
+			expectedPenalty: 0,
+		},
+		{
+			name:            "level 0 (none)",
+			dustLevel:       &types.DustLevel{Level: 0},
+			expectedPenalty: 0,
+		},
+		{
+			name:            "level 1 (low)",
+			dustLevel:       &types.DustLevel{Level: 1},
+			expectedPenalty: 5,
+		},
+		{
+			name:            "level 2 (moderate)",
+			dustLevel:       &types.DustLevel{Level: 2},
+			expectedPenalty: 15,
+		},
+		{
+			name:            "level 3 (high)",
+			dustLevel:       &types.DustLevel{Level: 3},
+			expectedPenalty: 30,
+		},
+		{
+			name:            "level 4 (very high)",
+			dustLevel:       &types.DustLevel{Level: 4},
+			expectedPenalty: 50,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			penalty := GetDustPenalty(tt.dustLevel)
+			if penalty != tt.expectedPenalty {
+				t.Errorf("Expected penalty %d, got %d", tt.expectedPenalty, penalty)
+			}
+		})
+	}
+}
+
+func TestGetDistanceDustMultiplier(t *testing.T) {
+	tests := []struct {
+		name               string
+		distanceCategory   *types.DistanceCategory
+		expectedMultiplier float64
+	}{
+		{
+			name:               "nil category",
+			distanceCategory:   nil,
+			expectedMultiplier: 1.0,
+		},
+		{
+			name:               "5k",
+			distanceCategory:   GetDistanceCategory("5k"),
+			expectedMultiplier: 1.0,
+		},
+		{
+			name:               "10k",
+			distanceCategory:   GetDistanceCategory("10k"),
+			expectedMultiplier: 1.2,
+		},
+		{
+			name:               "half",
+			distanceCategory:   GetDistanceCategory("half"),
+			expectedMultiplier: 1.5,
+		},
+		{
+			name:               "full",
+			distanceCategory:   GetDistanceCategory("full"),
+			expectedMultiplier: 2.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			multiplier := GetDistanceDustMultiplier(tt.distanceCategory)
+			if multiplier != tt.expectedMultiplier {
+				t.Errorf("Expected multiplier %f, got %f", tt.expectedMultiplier, multiplier)
+			}
+		})
+	}
+}
+
+func TestApplyDustPenalty(t *testing.T) {
+	// Test with moderate dust level
+	condition := types.RunningCondition{
+		Score:          80,
+		Level:          "最高",
+		Recommendation: "ランニングに最適な天候です！",
+		Warnings:       []string{},
+		Clothing:       []string{"薄手の半袖"},
+	}
+
+	dustLevel := &types.DustLevel{
+		Level:       2,
+		DisplayName: "やや多い",
+		Description: "視程に影響の可能性",
+		Dust:        150,
+		PM10:        80,
+		PM2_5:       35,
+	}
+
+	ApplyDustPenalty(&condition, dustLevel, nil)
+
+	// Score should be reduced by 15 (level 2 penalty)
+	if condition.Score != 65 {
+		t.Errorf("Expected score 65, got %d", condition.Score)
+	}
+
+	// Should have dust warning
+	hasWarning := false
+	for _, warning := range condition.Warnings {
+		if warning == "🌫️ 黄砂が飛来しています。マスク着用を推奨します" {
+			hasWarning = true
+			break
+		}
+	}
+	if !hasWarning {
+		t.Errorf("Expected dust warning not found")
+	}
+
+	// Should have sports mask in clothing
+	hasMask := false
+	for _, item := range condition.Clothing {
+		if item == "スポーツマスク" {
+			hasMask = true
+			break
+		}
+	}
+	if !hasMask {
+		t.Errorf("Expected sports mask in clothing recommendations")
+	}
+
+	// Level should be updated to 良好 (score 65)
+	if condition.Level != "良好" {
+		t.Errorf("Expected level '良好', got '%s'", condition.Level)
+	}
+}
+
+func TestApplyDustPenaltyWithDistance(t *testing.T) {
+	// Test with high dust level and full marathon
+	condition := types.RunningCondition{
+		Score:          100,
+		Level:          "最高",
+		Recommendation: "ランニングに最適な天候です！",
+		Warnings:       []string{},
+		Clothing:       []string{},
+	}
+
+	dustLevel := &types.DustLevel{
+		Level:       3,
+		DisplayName: "多い",
+		Description: "外出時に注意が必要",
+		Dust:        300,
+		PM10:        150,
+		PM2_5:       70,
+	}
+
+	categoryFull := GetDistanceCategory("full")
+	ApplyDustPenalty(&condition, dustLevel, categoryFull)
+
+	// Score should be reduced by 30 * 2.0 = 60
+	if condition.Score != 40 {
+		t.Errorf("Expected score 40, got %d", condition.Score)
+	}
+
+	// Should have both dust warnings
+	warningCount := 0
+	for _, warning := range condition.Warnings {
+		if warning == "🌫️ 黄砂が飛来しています。マスク着用を推奨します" ||
+			warning == "🌫️ 呼吸器系に不安がある方は屋内トレーニングを検討してください" {
+			warningCount++
+		}
+	}
+	if warningCount != 2 {
+		t.Errorf("Expected 2 dust warnings, got %d", warningCount)
+	}
+
+	// Should have both mask and sunglasses
+	hasMask := false
+	hasSunglasses := false
+	for _, item := range condition.Clothing {
+		if item == "スポーツマスク" {
+			hasMask = true
+		}
+		if item == "サングラス（目の保護）" {
+			hasSunglasses = true
+		}
+	}
+	if !hasMask || !hasSunglasses {
+		t.Errorf("Expected sports mask and sunglasses in clothing")
 	}
 }

@@ -69,6 +69,21 @@ func ExtractHour(timeStr string) string {
 	return timeStr
 }
 
+// ExtractHourInt extracts hour as integer from ISO time string
+func ExtractHourInt(timeStr string) int {
+	hour := ExtractHour(timeStr)
+	if len(hour) >= 2 {
+		if hour[0] == '0' {
+			return int(hour[1] - '0')
+		} else if hour[0] == '1' {
+			return 10 + int(hour[1]-'0')
+		} else if hour[0] == '2' {
+			return 20 + int(hour[1]-'0')
+		}
+	}
+	return 0
+}
+
 // ExtractDateBasedWeather extracts weather data for specific date
 func ExtractDateBasedWeather(weather *types.WeatherData, dayOffset int) *types.WeatherData {
 	if dayOffset == 0 || len(weather.Daily.Time) == 0 {

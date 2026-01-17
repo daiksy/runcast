@@ -12,6 +12,7 @@ import (
 )
 
 const apiURL = "https://api.open-meteo.com/v1/jma"
+const airQualityAPIURL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 // Cities holds all supported cities
 var Cities = map[string]types.CityCoordinate{
@@ -114,6 +115,149 @@ func GetWeather(lat, lon float64) (*types.WeatherData, error) {
 	}
 	
 	return &weather, nil
+}
+
+// GetAirQuality fetches air quality data from API
+func GetAirQuality(lat, lon float64) (*types.AirQualityData, error) {
+	url := fmt.Sprintf("%s?latitude=%s&longitude=%s&hourly=dust,pm10,pm2_5&timezone=Asia/Tokyo&forecast_days=1",
+		airQualityAPIURL,
+		strconv.FormatFloat(lat, 'f', 4, 64),
+		strconv.FormatFloat(lon, 'f', 4, 64))
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("Air Quality API request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Air Quality API request failed with status: %d", resp.StatusCode)
+	}
+
+	var airQuality types.AirQualityData
+	if err := json.NewDecoder(resp.Body).Decode(&airQuality); err != nil {
+		return nil, fmt.Errorf("failed to decode air quality response: %w", err)
+	}
+
+	return &airQuality, nil
+}
+
+// GetCurrentDustLevel returns current dust level based on air quality data
+func GetCurrentDustLevel(airQuality *types.AirQualityData) *types.DustLevel {
+	if airQuality == nil || len(airQuality.Hourly.Time) == 0 {
+		return nil
+	}
+
+	// Find current hour data
+	now := time.Now()
+	currentHour := now.Format("2006-01-02T15:00")
+
+	for i, t := range airQuality.Hourly.Time {
+		if t == currentHour {
+			dust := 0.0
+			pm10 := 0.0
+			pm2_5 := 0.0
+
+			if i < len(airQuality.Hourly.Dust) {
+				dust = airQuality.Hourly.Dust[i]
+			}
+			if i < len(airQuality.Hourly.PM10) {
+				pm10 = airQuality.Hourly.PM10[i]
+			}
+			if i < len(airQuality.Hourly.PM2_5) {
+				pm2_5 = airQuality.Hourly.PM2_5[i]
+			}
+
+			return createDustLevel(dust, pm10, pm2_5)
+		}
+	}
+
+	// If current hour not found, use first available data
+	dust := 0.0
+	pm10 := 0.0
+	pm2_5 := 0.0
+
+	if len(airQuality.Hourly.Dust) > 0 {
+		dust = airQuality.Hourly.Dust[0]
+	}
+	if len(airQuality.Hourly.PM10) > 0 {
+		pm10 = airQuality.Hourly.PM10[0]
+	}
+	if len(airQuality.Hourly.PM2_5) > 0 {
+		pm2_5 = airQuality.Hourly.PM2_5[0]
+	}
+
+	return createDustLevel(dust, pm10, pm2_5)
+}
+
+// GetHourlyDustLevel returns dust level for a specific hour
+func GetHourlyDustLevel(airQuality *types.AirQualityData, hour int, days int) *types.DustLevel {
+	if airQuality == nil || len(airQuality.Hourly.Time) == 0 {
+		return nil
+	}
+
+	targetDate := time.Now().AddDate(0, 0, days)
+	targetTime := fmt.Sprintf("%sT%02d:00", targetDate.Format("2006-01-02"), hour)
+
+	for i, t := range airQuality.Hourly.Time {
+		if t == targetTime {
+			dust := 0.0
+			pm10 := 0.0
+			pm2_5 := 0.0
+
+			if i < len(airQuality.Hourly.Dust) {
+				dust = airQuality.Hourly.Dust[i]
+			}
+			if i < len(airQuality.Hourly.PM10) {
+				pm10 = airQuality.Hourly.PM10[i]
+			}
+			if i < len(airQuality.Hourly.PM2_5) {
+				pm2_5 = airQuality.Hourly.PM2_5[i]
+			}
+
+			return createDustLevel(dust, pm10, pm2_5)
+		}
+	}
+
+	return nil
+}
+
+// createDustLevel creates DustLevel from raw values
+func createDustLevel(dust, pm10, pm2_5 float64) *types.DustLevel {
+	level := 0
+	displayName := "なし"
+	description := "黄砂の影響なし"
+
+	if dust > 500 {
+		level = 4
+		displayName = "非常に多い"
+		description = "屋外活動は控えるべき"
+	} else if dust > 200 {
+		level = 3
+		displayName = "多い"
+		description = "外出時に注意が必要"
+	} else if dust > 100 {
+		level = 2
+		displayName = "やや多い"
+		description = "視程に影響の可能性"
+	} else if dust > 50 {
+		level = 1
+		displayName = "少ない"
+		description = "わずかに飛来"
+	}
+
+	return &types.DustLevel{
+		Level:       level,
+		DisplayName: displayName,
+		Description: description,
+		Dust:        dust,
+		PM10:        pm10,
+		PM2_5:       pm2_5,
+	}
 }
 
 // GetWeatherDescription returns Japanese weather description

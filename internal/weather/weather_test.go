@@ -268,3 +268,145 @@ func TestGetWindDirection(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateDustLevel(t *testing.T) {
+	tests := []struct {
+		name                string
+		dust                float64
+		pm10                float64
+		pm2_5               float64
+		expectedLevel       int
+		expectedDisplayName string
+	}{
+		{
+			name:                "No dust",
+			dust:                30,
+			pm10:                40,
+			pm2_5:               20,
+			expectedLevel:       0,
+			expectedDisplayName: "なし",
+		},
+		{
+			name:                "Low dust",
+			dust:                75,
+			pm10:                60,
+			pm2_5:               30,
+			expectedLevel:       1,
+			expectedDisplayName: "少ない",
+		},
+		{
+			name:                "Moderate dust",
+			dust:                150,
+			pm10:                100,
+			pm2_5:               50,
+			expectedLevel:       2,
+			expectedDisplayName: "やや多い",
+		},
+		{
+			name:                "High dust",
+			dust:                300,
+			pm10:                200,
+			pm2_5:               80,
+			expectedLevel:       3,
+			expectedDisplayName: "多い",
+		},
+		{
+			name:                "Very high dust",
+			dust:                600,
+			pm10:                400,
+			pm2_5:               150,
+			expectedLevel:       4,
+			expectedDisplayName: "非常に多い",
+		},
+		{
+			name:                "Boundary 50",
+			dust:                50,
+			pm10:                40,
+			pm2_5:               20,
+			expectedLevel:       0,
+			expectedDisplayName: "なし",
+		},
+		{
+			name:                "Boundary 51",
+			dust:                51,
+			pm10:                40,
+			pm2_5:               20,
+			expectedLevel:       1,
+			expectedDisplayName: "少ない",
+		},
+		{
+			name:                "Boundary 100",
+			dust:                100,
+			pm10:                80,
+			pm2_5:               40,
+			expectedLevel:       1,
+			expectedDisplayName: "少ない",
+		},
+		{
+			name:                "Boundary 101",
+			dust:                101,
+			pm10:                80,
+			pm2_5:               40,
+			expectedLevel:       2,
+			expectedDisplayName: "やや多い",
+		},
+		{
+			name:                "Boundary 200",
+			dust:                200,
+			pm10:                150,
+			pm2_5:               60,
+			expectedLevel:       2,
+			expectedDisplayName: "やや多い",
+		},
+		{
+			name:                "Boundary 201",
+			dust:                201,
+			pm10:                150,
+			pm2_5:               60,
+			expectedLevel:       3,
+			expectedDisplayName: "多い",
+		},
+		{
+			name:                "Boundary 500",
+			dust:                500,
+			pm10:                350,
+			pm2_5:               120,
+			expectedLevel:       3,
+			expectedDisplayName: "多い",
+		},
+		{
+			name:                "Boundary 501",
+			dust:                501,
+			pm10:                350,
+			pm2_5:               120,
+			expectedLevel:       4,
+			expectedDisplayName: "非常に多い",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := createDustLevel(tt.dust, tt.pm10, tt.pm2_5)
+
+			if result.Level != tt.expectedLevel {
+				t.Errorf("Expected level %d, got %d", tt.expectedLevel, result.Level)
+			}
+
+			if result.DisplayName != tt.expectedDisplayName {
+				t.Errorf("Expected display name %s, got %s", tt.expectedDisplayName, result.DisplayName)
+			}
+
+			if result.Dust != tt.dust {
+				t.Errorf("Expected dust %f, got %f", tt.dust, result.Dust)
+			}
+
+			if result.PM10 != tt.pm10 {
+				t.Errorf("Expected PM10 %f, got %f", tt.pm10, result.PM10)
+			}
+
+			if result.PM2_5 != tt.pm2_5 {
+				t.Errorf("Expected PM2.5 %f, got %f", tt.pm2_5, result.PM2_5)
+			}
+		})
+	}
+}

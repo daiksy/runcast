@@ -284,3 +284,95 @@ func generateDistanceRecommendation(distanceCategory *types.DistanceCategory, le
 		return distanceCategory.DisplayName + "実行は控えることをお勧めします"
 	}
 }
+
+// GetDustPenalty calculates dust penalty for running score
+func GetDustPenalty(dustLevel *types.DustLevel) int {
+	if dustLevel == nil {
+		return 0
+	}
+
+	switch dustLevel.Level {
+	case 1:
+		return 5
+	case 2:
+		return 15
+	case 3:
+		return 30
+	case 4:
+		return 50
+	default:
+		return 0
+	}
+}
+
+// GetDistanceDustMultiplier returns dust penalty multiplier for distance
+func GetDistanceDustMultiplier(distanceCategory *types.DistanceCategory) float64 {
+	if distanceCategory == nil {
+		return 1.0
+	}
+
+	switch distanceCategory.Key {
+	case "10k":
+		return 1.2
+	case "half":
+		return 1.5
+	case "full":
+		return 2.0
+	default:
+		return 1.0
+	}
+}
+
+// ApplyDustPenalty applies dust penalty to running condition
+func ApplyDustPenalty(condition *types.RunningCondition, dustLevel *types.DustLevel, distanceCategory *types.DistanceCategory) {
+	if dustLevel == nil || dustLevel.Level == 0 {
+		return
+	}
+
+	basePenalty := GetDustPenalty(dustLevel)
+	multiplier := GetDistanceDustMultiplier(distanceCategory)
+	totalPenalty := int(float64(basePenalty) * multiplier)
+
+	condition.Score -= totalPenalty
+	if condition.Score < 0 {
+		condition.Score = 0
+	}
+
+	// Add dust-related warnings
+	if dustLevel.Level >= 2 {
+		condition.Warnings = append(condition.Warnings, "🌫️ 黄砂が飛来しています。マスク着用を推奨します")
+	}
+	if dustLevel.Level >= 3 {
+		condition.Warnings = append(condition.Warnings, "🌫️ 呼吸器系に不安がある方は屋内トレーニングを検討してください")
+	}
+	if dustLevel.Level >= 4 {
+		condition.Warnings = append(condition.Warnings, "⚠️ 黄砂が非常に多いため、屋外でのランニングは避けてください")
+	}
+
+	// Add dust-related clothing recommendations
+	if dustLevel.Level >= 2 {
+		condition.Clothing = append(condition.Clothing, "スポーツマスク")
+	}
+	if dustLevel.Level >= 3 {
+		condition.Clothing = append(condition.Clothing, "サングラス（目の保護）")
+	}
+
+	// Update level and recommendation based on new score
+	switch {
+	case condition.Score >= 80:
+		condition.Level = "最高"
+		condition.Recommendation = "ランニングに最適な天候です！"
+	case condition.Score >= 60:
+		condition.Level = "良好"
+		condition.Recommendation = "良好な天候です。ランニングを楽しんでください"
+	case condition.Score >= 40:
+		condition.Level = "普通"
+		condition.Recommendation = "注意事項を確認してからランニングしてください"
+	case condition.Score >= 20:
+		condition.Level = "注意"
+		condition.Recommendation = "警告事項があります。ランニングは控えめに"
+	default:
+		condition.Level = "危険"
+		condition.Recommendation = "天候が悪いため、ランニングは控えることをお勧めします"
+	}
+}

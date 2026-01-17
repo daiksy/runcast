@@ -9,6 +9,11 @@ import (
 
 // DisplayTimeBasedRunningWeatherWithDistance displays time-based running weather with distance consideration
 func DisplayTimeBasedRunningWeatherWithDistance(weatherData *types.WeatherData, cityName, timeOfDay string, days int, distanceCategory *types.DistanceCategory) {
+	DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData, cityName, timeOfDay, days, distanceCategory, nil)
+}
+
+// DisplayTimeBasedRunningWeatherWithDistanceAndDust displays time-based running weather with distance and dust consideration
+func DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, cityName, timeOfDay string, days int, distanceCategory *types.DistanceCategory, airQuality *types.AirQualityData) {
 	periods := weather.GetTimePeriods()
 	period := periods[timeOfDay]
 	
@@ -64,23 +69,31 @@ func DisplayTimeBasedRunningWeatherWithDistance(weatherData *types.WeatherData, 
 				data.WeatherCode,
 			)
 		}
-		
+
+		// Get dust level for this hour
 		hour := weather.ExtractHour(data.Time)
+		hourInt := weather.ExtractHourInt(data.Time)
+		dustLevel := weather.GetHourlyDustLevel(airQuality, hourInt, days)
+		running.ApplyDustPenalty(&condition, dustLevel, distanceCategory)
+
 		fmt.Printf("🕐 %s時: %d/100 (%s)\n", hour, condition.Score, condition.Level)
-		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%%\n", 
+		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%%\n",
 			data.Temperature, data.ApparentTemp, data.Humidity)
 		fmt.Printf("   ☁️ %s", weather.GetWeatherDescription(data.WeatherCode))
 		if data.Precipitation > 0 {
 			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
 		}
+		if dustLevel != nil && dustLevel.Level > 0 {
+			fmt.Printf(" | 🌫️ %s", dustLevel.DisplayName)
+		}
 		fmt.Printf("\n")
-		
+
 		if condition.Score > bestScore {
 			bestScore = condition.Score
 			bestCondition = data
 			bestTime = hour
 		}
-		
+
 		fmt.Printf("   ────────────────────────────\n")
 	}
 	
