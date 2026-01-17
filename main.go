@@ -119,22 +119,33 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Get air quality data
+	airQuality, err := weather.GetAirQuality(coord.Lat, coord.Lon)
+	if err != nil {
+		// Air quality data is optional, continue without it
+		fmt.Printf("警告: 大気質データの取得に失敗しました: %v\n", err)
+		airQuality = nil
+	}
+
 	// Display logic - always in running mode
 	if *dateSpec != "" {
 		dayOffset := weather.GetDateOffset(*dateSpec)
-		
+
 		if *timeOfDay != "" {
 			// Date + time specific running weather
-			display.DisplayDateTimeBasedRunningWeatherWithDistance(weatherData, coord.Name, *dateSpec, *timeOfDay, dayOffset, distanceCategory)
+			display.DisplayDateTimeBasedRunningWeatherWithDistanceAndDust(weatherData, coord.Name, *dateSpec, *timeOfDay, dayOffset, distanceCategory, airQuality)
 		} else {
 			// Date specific running weather (full day)
-			display.DisplayDateBasedRunningWeatherWithDistance(weatherData, coord.Name, *dateSpec, dayOffset, distanceCategory)
+			// Get average dust level for the day
+			dustLevel := weather.GetCurrentDustLevel(airQuality)
+			display.DisplayDateBasedRunningWeatherWithDistanceAndDust(weatherData, coord.Name, *dateSpec, dayOffset, distanceCategory, dustLevel)
 		}
 	} else if *timeOfDay != "" {
 		// Time-specific running weather
-		display.DisplayTimeBasedRunningWeatherWithDistance(weatherData, coord.Name, *timeOfDay, requiredDays, distanceCategory)
+		display.DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData, coord.Name, *timeOfDay, requiredDays, distanceCategory, airQuality)
 	} else {
 		// Current running weather
-		display.DisplayRunningWeatherWithDistance(weatherData, coord.Name, distanceCategory)
+		dustLevel := weather.GetCurrentDustLevel(airQuality)
+		display.DisplayRunningWeatherWithDistanceAndDust(weatherData, coord.Name, distanceCategory, dustLevel)
 	}
 }

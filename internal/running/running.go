@@ -284,3 +284,129 @@ func generateDistanceRecommendation(distanceCategory *types.DistanceCategory, le
 		return distanceCategory.DisplayName + "実行は控えることをお勧めします"
 	}
 }
+
+// GetDustPenalty calculates dust penalty for running score
+func GetDustPenalty(dustLevel *types.DustLevel) int {
+	if dustLevel == nil {
+		return 0
+	}
+
+	switch dustLevel.Level {
+	case 1:
+		return 5
+	case 2:
+		return 15
+	case 3:
+		return 30
+	case 4:
+		return 50
+	default:
+		return 0
+	}
+}
+
+// GetDistanceDustMultiplier returns dust penalty multiplier for distance
+func GetDistanceDustMultiplier(distanceCategory *types.DistanceCategory) float64 {
+	if distanceCategory == nil {
+		return 1.0
+	}
+
+	switch distanceCategory.Key {
+	case "10k":
+		return 1.2
+	case "half":
+		return 1.5
+	case "full":
+		return 2.0
+	default:
+		return 1.0
+	}
+}
+
+// GetPM25Penalty calculates PM2.5 penalty for running score
+// Based on Japan's environmental standards:
+// - 35 μg/m³ or below: Good (environmental standard)
+// - 36-50 μg/m³: Slightly elevated
+// - 51-70 μg/m³: High (caution)
+// - 71+ μg/m³: Very high (alert level)
+func GetPM25Penalty(pm25 float64) int {
+	if pm25 <= 35 {
+		return 0
+	} else if pm25 <= 50 {
+		return 5
+	} else if pm25 <= 70 {
+		return 15
+	} else {
+		return 30
+	}
+}
+
+// ApplyDustPenalty applies dust and PM2.5 penalty to running condition
+func ApplyDustPenalty(condition *types.RunningCondition, dustLevel *types.DustLevel, distanceCategory *types.DistanceCategory) {
+	if dustLevel == nil {
+		return
+	}
+
+	// Calculate dust penalty
+	basePenalty := GetDustPenalty(dustLevel)
+	multiplier := GetDistanceDustMultiplier(distanceCategory)
+	dustPenalty := int(float64(basePenalty) * multiplier)
+
+	// Calculate PM2.5 penalty
+	pm25Penalty := int(float64(GetPM25Penalty(dustLevel.PM2_5)) * multiplier)
+
+	// Apply total penalty
+	totalPenalty := dustPenalty + pm25Penalty
+	condition.Score -= totalPenalty
+	if condition.Score < 0 {
+		condition.Score = 0
+	}
+
+	// Add dust-related warnings
+	if dustLevel.Level >= 2 {
+		condition.Warnings = append(condition.Warnings, "🌫️ 黄砂が飛来しています。マスク着用を推奨します")
+	}
+	if dustLevel.Level >= 3 {
+		condition.Warnings = append(condition.Warnings, "🌫️ 呼吸器系に不安がある方は屋内トレーニングを検討してください")
+	}
+	if dustLevel.Level >= 4 {
+		condition.Warnings = append(condition.Warnings, "⚠️ 黄砂が非常に多いため、屋外でのランニングは避けてください")
+	}
+
+	// Add PM2.5-related warnings based on Japan's environmental standards
+	if dustLevel.PM2_5 > 70 {
+		condition.Warnings = append(condition.Warnings, "⚠️ PM2.5が注意喚起レベル(70μg/m³超)です。屋外での激しい運動は避けてください")
+	} else if dustLevel.PM2_5 > 50 {
+		condition.Warnings = append(condition.Warnings, "😷 PM2.5が高め(50μg/m³超)です。長時間の屋外運動に注意してください")
+	} else if dustLevel.PM2_5 > 35 {
+		condition.Warnings = append(condition.Warnings, "😷 PM2.5が環境基準(35μg/m³)を超えています。敏感な方は注意してください")
+	}
+
+	// Add clothing recommendations for air quality
+	needsMask := dustLevel.Level >= 2 || dustLevel.PM2_5 > 50
+	if needsMask {
+		condition.Clothing = append(condition.Clothing, "スポーツマスク")
+	}
+	if dustLevel.Level >= 3 {
+		condition.Clothing = append(condition.Clothing, "サングラス（目の保護）")
+	}
+
+	// Update level and recommendation based on new score
+	switch {
+	case condition.Score >= 80:
+		condition.Level = "最高"
+		condition.Recommendation = "ランニングに最適な天候です！"
+	case condition.Score >= 60:
+		condition.Level = "良好"
+		condition.Recommendation = "良好な天候です。ランニングを楽しんでください"
+	case condition.Score >= 40:
+		condition.Level = "普通"
+		condition.Recommendation = "注意事項を確認してからランニングしてください"
+	case condition.Score >= 20:
+		condition.Level = "注意"
+		condition.Recommendation = "警告事項があります。ランニングは控えめに"
+	default:
+		condition.Level = "危険"
+		condition.Recommendation = "天候が悪いため、ランニングは控えることをお勧めします"
+	}
+}

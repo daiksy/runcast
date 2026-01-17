@@ -72,6 +72,11 @@ func DisplayDateBasedWeather(weatherData *types.WeatherData, cityName, dateSpec 
 
 // DisplayDateBasedRunningWeatherWithDistance displays date-based running weather with distance consideration
 func DisplayDateBasedRunningWeatherWithDistance(weatherData *types.WeatherData, cityName, dateSpec string, dayOffset int, distanceCategory *types.DistanceCategory) {
+	DisplayDateBasedRunningWeatherWithDistanceAndDust(weatherData, cityName, dateSpec, dayOffset, distanceCategory, nil)
+}
+
+// DisplayDateBasedRunningWeatherWithDistanceAndDust displays date-based running weather with distance and dust consideration
+func DisplayDateBasedRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, cityName, dateSpec string, dayOffset int, distanceCategory *types.DistanceCategory, dustLevel *types.DustLevel) {
 	dateSpecificWeather := weather.ExtractDateBasedWeather(weatherData, dayOffset)
 	
 	dateDisplayName := weather.GetDateDisplayName(dateSpec)
@@ -113,18 +118,27 @@ func DisplayDateBasedRunningWeatherWithDistance(weatherData *types.WeatherData, 
 	} else {
 		dailyCondition = running.AssessRunningCondition(avgTemp, avgTemp, 60, maxWind, precipitation, weatherCode)
 	}
-	
+
+	// Apply dust penalty
+	running.ApplyDustPenalty(&dailyCondition, dustLevel, distanceCategory)
+
 	fmt.Printf("📅 %s (%s)\n", weather.FormatDate(date), dateDisplayName)
 	fmt.Printf("🏆 ランニング指数: %d/100 (%s)\n", dailyCondition.Score, dailyCondition.Level)
 	fmt.Printf("💡 %s\n", dailyCondition.Recommendation)
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	
+
 	fmt.Printf("🌡️ %s%.1f°C〜%.1f°C\n", GetRunningTempIcon(avgTemp), minTemp, maxTemp)
 	fmt.Printf("☁️ %s\n", weather.GetWeatherDescription(weatherCode))
 	if precipitation > 0 {
 		fmt.Printf("🌧️ 降水量: %.1f mm\n", precipitation)
 	}
-	
+
+	// Dust information
+	if dustLevel != nil {
+		fmt.Printf("🌫️ 黄砂: %s (%.0f μg/m³)\n", dustLevel.DisplayName, dustLevel.Dust)
+		fmt.Printf("   PM2.5: %.0f μg/m³ / PM10: %.0f μg/m³\n", dustLevel.PM2_5, dustLevel.PM10)
+	}
+
 	// Clothing recommendations
 	if len(dailyCondition.Clothing) > 0 {
 		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
@@ -133,7 +147,7 @@ func DisplayDateBasedRunningWeatherWithDistance(weatherData *types.WeatherData, 
 			fmt.Printf("   • %s\n", item)
 		}
 	}
-	
+
 	// Warnings
 	if len(dailyCondition.Warnings) > 0 {
 		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
@@ -142,7 +156,7 @@ func DisplayDateBasedRunningWeatherWithDistance(weatherData *types.WeatherData, 
 			fmt.Printf("   %s\n", warning)
 		}
 	}
-	
+
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 }
 
@@ -184,6 +198,11 @@ func DisplayDateTimeBasedWeather(weatherData *types.WeatherData, cityName, dateS
 
 // DisplayDateTimeBasedRunningWeatherWithDistance displays date and time based running weather with distance consideration
 func DisplayDateTimeBasedRunningWeatherWithDistance(weatherData *types.WeatherData, cityName, dateSpec, timeOfDay string, dayOffset int, distanceCategory *types.DistanceCategory) {
+	DisplayDateTimeBasedRunningWeatherWithDistanceAndDust(weatherData, cityName, dateSpec, timeOfDay, dayOffset, distanceCategory, nil)
+}
+
+// DisplayDateTimeBasedRunningWeatherWithDistanceAndDust displays date and time based running weather with distance and dust consideration
+func DisplayDateTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, cityName, dateSpec, timeOfDay string, dayOffset int, distanceCategory *types.DistanceCategory, airQuality *types.AirQualityData) {
 	dateSpecificWeather := weather.ExtractDateBasedWeather(weatherData, dayOffset)
 	
 	periods := weather.GetTimePeriods()
@@ -242,26 +261,34 @@ func DisplayDateTimeBasedRunningWeatherWithDistance(weatherData *types.WeatherDa
 				data.WeatherCode,
 			)
 		}
-		
+
+		// Get dust level for this hour
 		hour := weather.ExtractHour(data.Time)
+		hourInt := weather.ExtractHourInt(data.Time)
+		dustLevel := weather.GetHourlyDustLevel(airQuality, hourInt, dayOffset)
+		running.ApplyDustPenalty(&condition, dustLevel, distanceCategory)
+
 		fmt.Printf("🕐 %s時: %d/100 (%s)\n", hour, condition.Score, condition.Level)
-		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%%\n", 
+		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%%\n",
 			data.Temperature, data.ApparentTemp, data.Humidity)
 		fmt.Printf("   ☁️ %s", weather.GetWeatherDescription(data.WeatherCode))
 		if data.Precipitation > 0 {
 			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
 		}
+		if dustLevel != nil {
+			fmt.Printf(" | 🌫️ %s", dustLevel.DisplayName)
+		}
 		fmt.Printf("\n")
-		
+
 		if condition.Score > bestScore {
 			bestScore = condition.Score
 			bestCondition = data
 			bestTime = hour
 		}
-		
+
 		fmt.Printf("   ────────────────────────────\n")
 	}
-	
+
 	// Best time recommendation
 	if bestScore >= 0 {
 		var bestRunningCondition types.RunningCondition
@@ -285,10 +312,10 @@ func DisplayDateTimeBasedRunningWeatherWithDistance(weatherData *types.WeatherDa
 				bestCondition.WeatherCode,
 			)
 		}
-		
+
 		fmt.Printf("🏆 最適時間: %s時 (スコア: %d/100)\n", bestTime, bestScore)
 		fmt.Printf("💡 %s\n", bestRunningCondition.Recommendation)
-		
+
 		if len(bestRunningCondition.Warnings) > 0 {
 			fmt.Printf("⚠️ 注意事項:\n")
 			for _, warning := range bestRunningCondition.Warnings {
@@ -296,6 +323,6 @@ func DisplayDateTimeBasedRunningWeatherWithDistance(weatherData *types.WeatherDa
 			}
 		}
 	}
-	
+
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 }

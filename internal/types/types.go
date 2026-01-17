@@ -88,3 +88,23 @@ type RunningCondition struct {
 	Warnings       []string
 	Clothing       []string
 }
+
+// AirQualityData represents air quality information from API
+type AirQualityData struct {
+	Hourly struct {
+		Time  []string  `json:"time"`
+		Dust  []float64 `json:"dust"`
+		PM10  []float64 `json:"pm10"`
+		PM2_5 []float64 `json:"pm2_5"`
+	} `json:"hourly"`
+}
+
+// DustLevel represents dust concentration level
+type DustLevel struct {
+	Level       int
+	DisplayName string
+	Description string
+	Dust        float64
+	PM10        float64
+	PM2_5       float64
+}
