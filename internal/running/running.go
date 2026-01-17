@@ -323,16 +323,40 @@ func GetDistanceDustMultiplier(distanceCategory *types.DistanceCategory) float64
 	}
 }
 
-// ApplyDustPenalty applies dust penalty to running condition
+// GetPM25Penalty calculates PM2.5 penalty for running score
+// Based on Japan's environmental standards:
+// - 35 μg/m³ or below: Good (environmental standard)
+// - 36-50 μg/m³: Slightly elevated
+// - 51-70 μg/m³: High (caution)
+// - 71+ μg/m³: Very high (alert level)
+func GetPM25Penalty(pm25 float64) int {
+	if pm25 <= 35 {
+		return 0
+	} else if pm25 <= 50 {
+		return 5
+	} else if pm25 <= 70 {
+		return 15
+	} else {
+		return 30
+	}
+}
+
+// ApplyDustPenalty applies dust and PM2.5 penalty to running condition
 func ApplyDustPenalty(condition *types.RunningCondition, dustLevel *types.DustLevel, distanceCategory *types.DistanceCategory) {
-	if dustLevel == nil || dustLevel.Level == 0 {
+	if dustLevel == nil {
 		return
 	}
 
+	// Calculate dust penalty
 	basePenalty := GetDustPenalty(dustLevel)
 	multiplier := GetDistanceDustMultiplier(distanceCategory)
-	totalPenalty := int(float64(basePenalty) * multiplier)
+	dustPenalty := int(float64(basePenalty) * multiplier)
 
+	// Calculate PM2.5 penalty
+	pm25Penalty := int(float64(GetPM25Penalty(dustLevel.PM2_5)) * multiplier)
+
+	// Apply total penalty
+	totalPenalty := dustPenalty + pm25Penalty
 	condition.Score -= totalPenalty
 	if condition.Score < 0 {
 		condition.Score = 0
@@ -349,8 +373,18 @@ func ApplyDustPenalty(condition *types.RunningCondition, dustLevel *types.DustLe
 		condition.Warnings = append(condition.Warnings, "⚠️ 黄砂が非常に多いため、屋外でのランニングは避けてください")
 	}
 
-	// Add dust-related clothing recommendations
-	if dustLevel.Level >= 2 {
+	// Add PM2.5-related warnings based on Japan's environmental standards
+	if dustLevel.PM2_5 > 70 {
+		condition.Warnings = append(condition.Warnings, "⚠️ PM2.5が注意喚起レベル(70μg/m³超)です。屋外での激しい運動は避けてください")
+	} else if dustLevel.PM2_5 > 50 {
+		condition.Warnings = append(condition.Warnings, "😷 PM2.5が高め(50μg/m³超)です。長時間の屋外運動に注意してください")
+	} else if dustLevel.PM2_5 > 35 {
+		condition.Warnings = append(condition.Warnings, "😷 PM2.5が環境基準(35μg/m³)を超えています。敏感な方は注意してください")
+	}
+
+	// Add clothing recommendations for air quality
+	needsMask := dustLevel.Level >= 2 || dustLevel.PM2_5 > 50
+	if needsMask {
 		condition.Clothing = append(condition.Clothing, "スポーツマスク")
 	}
 	if dustLevel.Level >= 3 {
