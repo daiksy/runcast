@@ -129,6 +129,7 @@ func DisplayDateBasedRunningWeatherWithDistanceAndDust(weatherData *types.Weathe
 
 	fmt.Printf("🌡️ %s%.1f°C〜%.1f°C\n", GetRunningTempIcon(avgTemp), minTemp, maxTemp)
 	fmt.Printf("☁️ %s\n", weather.GetWeatherDescription(weatherCode))
+	fmt.Printf("🌬️ 最大風速: %.1f m/s\n", maxWind)
 	if precipitation > 0 {
 		fmt.Printf("🌧️ 降水量: %.1f mm\n", precipitation)
 	}
@@ -269,8 +270,8 @@ func DisplayDateTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.We
 		running.ApplyDustPenalty(&condition, dustLevel, distanceCategory)
 
 		fmt.Printf("🕐 %s時: %d/100 (%s)\n", hour, condition.Score, condition.Level)
-		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%%\n",
-			data.Temperature, data.ApparentTemp, data.Humidity)
+		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%% | 🌬️ %s %.1fm/s\n",
+			data.Temperature, data.ApparentTemp, data.Humidity, weather.GetWindDirection(data.WindDirection), data.WindSpeed)
 		fmt.Printf("   ☁️ %s", weather.GetWeatherDescription(data.WeatherCode))
 		if data.Precipitation > 0 {
 			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
