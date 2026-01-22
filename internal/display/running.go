@@ -77,8 +77,8 @@ func DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.Weathe
 		running.ApplyDustPenalty(&condition, dustLevel, distanceCategory)
 
 		fmt.Printf("🕐 %s時: %d/100 (%s)\n", hour, condition.Score, condition.Level)
-		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%%\n",
-			data.Temperature, data.ApparentTemp, data.Humidity)
+		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%% | 🌬️ %s %.1fm/s\n",
+			data.Temperature, data.ApparentTemp, data.Humidity, weather.GetWindDirection(data.WindDirection), data.WindSpeed)
 		fmt.Printf("   ☁️ %s", weather.GetWeatherDescription(data.WeatherCode))
 		if data.Precipitation > 0 {
 			fmt.Printf(" | 🌧️ %.1fmm", data.Precipitation)
