@@ -241,6 +241,74 @@ func TestAssessDistanceBasedRunningCondition(t *testing.T) {
 	}
 }
 
+func TestGetPollenPenalty(t *testing.T) {
+	tests := []struct {
+		name    string
+		level   *types.PollenLevel
+		want    int
+	}{
+		{"nil", nil, 0},
+		{"level 0", &types.PollenLevel{Level: 0}, 0},
+		{"level 1", &types.PollenLevel{Level: 1}, 5},
+		{"level 2", &types.PollenLevel{Level: 2}, 15},
+		{"level 3", &types.PollenLevel{Level: 3}, 30},
+		{"level 4", &types.PollenLevel{Level: 4}, 50},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetPollenPenalty(tt.level); got != tt.want {
+				t.Errorf("GetPollenPenalty() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestApplyPollenPenalty(t *testing.T) {
+	t.Run("level 0 no change", func(t *testing.T) {
+		cond := types.RunningCondition{Score: 100}
+		ApplyPollenPenalty(&cond, &types.PollenLevel{Level: 0}, nil)
+		if cond.Score != 100 {
+			t.Errorf("expected score 100, got %d", cond.Score)
+		}
+	})
+
+	t.Run("level 2 adds warning and mask", func(t *testing.T) {
+		cond := types.RunningCondition{Score: 100, Warnings: []string{}, Clothing: []string{}}
+		ApplyPollenPenalty(&cond, &types.PollenLevel{Level: 2, Pollen: 50}, nil)
+		if cond.Score != 85 {
+			t.Errorf("expected score 85, got %d", cond.Score)
+		}
+		hasWarning := false
+		for _, w := range cond.Warnings {
+			if w == "🌿 花粉が飛散しています。マスク着用を推奨します" {
+				hasWarning = true
+			}
+		}
+		if !hasWarning {
+			t.Error("expected pollen warning")
+		}
+		hasMask := false
+		for _, c := range cond.Clothing {
+			if c == "花粉対策マスク" {
+				hasMask = true
+			}
+		}
+		if !hasMask {
+			t.Error("expected mask in clothing")
+		}
+	})
+
+	t.Run("full marathon multiplier applied", func(t *testing.T) {
+		cond := types.RunningCondition{Score: 100, Warnings: []string{}, Clothing: []string{}}
+		full := GetDistanceCategory("full")
+		ApplyPollenPenalty(&cond, &types.PollenLevel{Level: 2, Pollen: 50}, full)
+		// penalty = 15 * 2.0 = 30
+		if cond.Score != 70 {
+			t.Errorf("expected score 70, got %d", cond.Score)
+		}
+	})
+}
+
 func TestGetDustPenalty(t *testing.T) {
 	tests := []struct {
 		name            string

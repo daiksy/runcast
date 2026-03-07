@@ -108,3 +108,16 @@ type DustLevel struct {
 	PM10        float64
 	PM2_5       float64
 }
+
+// PollenData represents hourly pollen count data from Weathernews API
+type PollenData struct {
+	Time   string
+	Pollen int // grains/cm²
+}
+
+// PollenLevel represents pollen concentration level
+type PollenLevel struct {
+	Level       int
+	DisplayName string
+	Pollen      int // grains/cm²
+}

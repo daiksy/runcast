@@ -14,6 +14,11 @@ func DisplayTimeBasedRunningWeatherWithDistance(weatherData *types.WeatherData, 
 
 // DisplayTimeBasedRunningWeatherWithDistanceAndDust displays time-based running weather with distance and dust consideration
 func DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, cityName, timeOfDay string, days int, distanceCategory *types.DistanceCategory, airQuality *types.AirQualityData) {
+	DisplayTimeBasedRunningWeatherFull(weatherData, cityName, timeOfDay, days, distanceCategory, airQuality, nil)
+}
+
+// DisplayTimeBasedRunningWeatherFull displays time-based running weather with distance, dust, and pollen consideration
+func DisplayTimeBasedRunningWeatherFull(weatherData *types.WeatherData, cityName, timeOfDay string, days int, distanceCategory *types.DistanceCategory, airQuality *types.AirQualityData, pollenData []types.PollenData) {
 	periods := weather.GetTimePeriods()
 	period := periods[timeOfDay]
 	
@@ -70,11 +75,13 @@ func DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.Weathe
 			)
 		}
 
-		// Get dust level for this hour
+		// Get dust and pollen level for this hour
 		hour := weather.ExtractHour(data.Time)
 		hourInt := weather.ExtractHourInt(data.Time)
 		dustLevel := weather.GetHourlyDustLevel(airQuality, hourInt, days)
+		pollenLevel := weather.GetHourlyPollenLevel(pollenData, hourInt)
 		running.ApplyDustPenalty(&condition, dustLevel, distanceCategory)
+		running.ApplyPollenPenalty(&condition, pollenLevel, distanceCategory)
 
 		fmt.Printf("🕐 %s時: %d/100 (%s)\n", hour, condition.Score, condition.Level)
 		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%% | 🌬️ %s %.1fm/s\n",
@@ -85,6 +92,9 @@ func DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.Weathe
 		}
 		if dustLevel != nil {
 			fmt.Printf(" | 🌫️ %s", dustLevel.DisplayName)
+		}
+		if pollenLevel != nil && pollenLevel.Level > 0 {
+			fmt.Printf(" | 🌿 %s", pollenLevel.DisplayName)
 		}
 		fmt.Printf("\n")
 

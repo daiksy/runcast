@@ -45,6 +45,11 @@ func DisplayRunningWeatherWithDistance(weatherData *types.WeatherData, cityName 
 
 // DisplayRunningWeatherWithDistanceAndDust displays running weather with distance and dust consideration
 func DisplayRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, cityName string, distanceCategory *types.DistanceCategory, dustLevel *types.DustLevel) {
+	DisplayRunningWeatherFull(weatherData, cityName, distanceCategory, dustLevel, nil)
+}
+
+// DisplayRunningWeatherFull displays running weather with distance, dust, and pollen consideration
+func DisplayRunningWeatherFull(weatherData *types.WeatherData, cityName string, distanceCategory *types.DistanceCategory, dustLevel *types.DustLevel, pollenLevel *types.PollenLevel) {
 	var condition types.RunningCondition
 	var titleSuffix string
 
@@ -71,8 +76,9 @@ func DisplayRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, ci
 		)
 	}
 
-	// Apply dust penalty
+	// Apply dust and pollen penalties
 	running.ApplyDustPenalty(&condition, dustLevel, distanceCategory)
+	running.ApplyPollenPenalty(&condition, pollenLevel, distanceCategory)
 
 	fmt.Printf("🏃‍♂️ %s のランニング情報%s\n", cityName, titleSuffix)
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
@@ -100,6 +106,11 @@ func DisplayRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, ci
 	if dustLevel != nil {
 		fmt.Printf("🌫️ 黄砂: %s (%.0f μg/m³)\n", dustLevel.DisplayName, dustLevel.Dust)
 		fmt.Printf("   PM2.5: %.0f μg/m³ / PM10: %.0f μg/m³\n", dustLevel.PM2_5, dustLevel.PM10)
+	}
+
+	// Pollen information
+	if pollenLevel != nil {
+		fmt.Printf("🌿 花粉: %s (%d個/cm²)\n", pollenLevel.DisplayName, pollenLevel.Pollen)
 	}
 
 	// Clothing recommendations

@@ -77,6 +77,11 @@ func DisplayDateBasedRunningWeatherWithDistance(weatherData *types.WeatherData, 
 
 // DisplayDateBasedRunningWeatherWithDistanceAndDust displays date-based running weather with distance and dust consideration
 func DisplayDateBasedRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, cityName, dateSpec string, dayOffset int, distanceCategory *types.DistanceCategory, dustLevel *types.DustLevel) {
+	DisplayDateBasedRunningWeatherFull(weatherData, cityName, dateSpec, dayOffset, distanceCategory, dustLevel, nil)
+}
+
+// DisplayDateBasedRunningWeatherFull displays date-based running weather with distance, dust, and pollen consideration
+func DisplayDateBasedRunningWeatherFull(weatherData *types.WeatherData, cityName, dateSpec string, dayOffset int, distanceCategory *types.DistanceCategory, dustLevel *types.DustLevel, pollenLevel *types.PollenLevel) {
 	dateSpecificWeather := weather.ExtractDateBasedWeather(weatherData, dayOffset)
 	
 	dateDisplayName := weather.GetDateDisplayName(dateSpec)
@@ -119,8 +124,9 @@ func DisplayDateBasedRunningWeatherWithDistanceAndDust(weatherData *types.Weathe
 		dailyCondition = running.AssessRunningCondition(avgTemp, avgTemp, 60, maxWind, precipitation, weatherCode)
 	}
 
-	// Apply dust penalty
+	// Apply dust and pollen penalties
 	running.ApplyDustPenalty(&dailyCondition, dustLevel, distanceCategory)
+	running.ApplyPollenPenalty(&dailyCondition, pollenLevel, distanceCategory)
 
 	fmt.Printf("📅 %s (%s)\n", weather.FormatDate(date), dateDisplayName)
 	fmt.Printf("🏆 ランニング指数: %d/100 (%s)\n", dailyCondition.Score, dailyCondition.Level)
@@ -138,6 +144,11 @@ func DisplayDateBasedRunningWeatherWithDistanceAndDust(weatherData *types.Weathe
 	if dustLevel != nil {
 		fmt.Printf("🌫️ 黄砂: %s (%.0f μg/m³)\n", dustLevel.DisplayName, dustLevel.Dust)
 		fmt.Printf("   PM2.5: %.0f μg/m³ / PM10: %.0f μg/m³\n", dustLevel.PM2_5, dustLevel.PM10)
+	}
+
+	// Pollen information
+	if pollenLevel != nil {
+		fmt.Printf("🌿 花粉: %s (%d個/cm²)\n", pollenLevel.DisplayName, pollenLevel.Pollen)
 	}
 
 	// Clothing recommendations
@@ -204,6 +215,11 @@ func DisplayDateTimeBasedRunningWeatherWithDistance(weatherData *types.WeatherDa
 
 // DisplayDateTimeBasedRunningWeatherWithDistanceAndDust displays date and time based running weather with distance and dust consideration
 func DisplayDateTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.WeatherData, cityName, dateSpec, timeOfDay string, dayOffset int, distanceCategory *types.DistanceCategory, airQuality *types.AirQualityData) {
+	DisplayDateTimeBasedRunningWeatherFull(weatherData, cityName, dateSpec, timeOfDay, dayOffset, distanceCategory, airQuality, nil)
+}
+
+// DisplayDateTimeBasedRunningWeatherFull displays date and time based running weather with distance, dust, and pollen consideration
+func DisplayDateTimeBasedRunningWeatherFull(weatherData *types.WeatherData, cityName, dateSpec, timeOfDay string, dayOffset int, distanceCategory *types.DistanceCategory, airQuality *types.AirQualityData, pollenData []types.PollenData) {
 	dateSpecificWeather := weather.ExtractDateBasedWeather(weatherData, dayOffset)
 	
 	periods := weather.GetTimePeriods()
@@ -263,11 +279,13 @@ func DisplayDateTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.We
 			)
 		}
 
-		// Get dust level for this hour
+		// Get dust and pollen level for this hour
 		hour := weather.ExtractHour(data.Time)
 		hourInt := weather.ExtractHourInt(data.Time)
 		dustLevel := weather.GetHourlyDustLevel(airQuality, hourInt, dayOffset)
+		pollenLevel := weather.GetHourlyPollenLevel(pollenData, hourInt)
 		running.ApplyDustPenalty(&condition, dustLevel, distanceCategory)
+		running.ApplyPollenPenalty(&condition, pollenLevel, distanceCategory)
 
 		fmt.Printf("🕐 %s時: %d/100 (%s)\n", hour, condition.Score, condition.Level)
 		fmt.Printf("   🌡️ %.1f°C (体感: %.1f°C) | 💧 %d%% | 🌬️ %s %.1fm/s\n",
@@ -278,6 +296,9 @@ func DisplayDateTimeBasedRunningWeatherWithDistanceAndDust(weatherData *types.We
 		}
 		if dustLevel != nil {
 			fmt.Printf(" | 🌫️ %s", dustLevel.DisplayName)
+		}
+		if pollenLevel != nil && pollenLevel.Level > 0 {
+			fmt.Printf(" | 🌿 %s", pollenLevel.DisplayName)
 		}
 		fmt.Printf("\n")
 
