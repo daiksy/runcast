@@ -127,14 +127,14 @@ func main() {
 		airQuality = nil
 	}
 
-	// Get pollen data (only for supported cities)
+	// Get pollen data (only for supported cities, today only - API does not support future dates)
 	var pollenData []types.PollenData
-	if cityCode, ok := weather.GetCityCode(*city); ok {
-		dayOffset := 0
-		if *dateSpec != "" {
-			dayOffset = weather.GetDateOffset(*dateSpec)
-		}
-		pollenData, err = weather.GetPollen(cityCode, dayOffset)
+	pollenDayOffset := 0
+	if *dateSpec != "" {
+		pollenDayOffset = weather.GetDateOffset(*dateSpec)
+	}
+	if cityCode, ok := weather.GetCityCode(*city); ok && pollenDayOffset == 0 {
+		pollenData, err = weather.GetPollen(cityCode, 0)
 		if err != nil {
 			// Pollen data is optional, continue without it
 			fmt.Printf("警告: 花粉データの取得に失敗しました: %v\n", err)
