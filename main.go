@@ -127,25 +127,41 @@ func main() {
 		airQuality = nil
 	}
 
+	// Get pollen data (only for supported cities)
+	var pollenData []types.PollenData
+	if cityCode, ok := weather.GetCityCode(*city); ok {
+		dayOffset := 0
+		if *dateSpec != "" {
+			dayOffset = weather.GetDateOffset(*dateSpec)
+		}
+		pollenData, err = weather.GetPollen(cityCode, dayOffset)
+		if err != nil {
+			// Pollen data is optional, continue without it
+			fmt.Printf("警告: 花粉データの取得に失敗しました: %v\n", err)
+			pollenData = nil
+		}
+	}
+
 	// Display logic - always in running mode
 	if *dateSpec != "" {
 		dayOffset := weather.GetDateOffset(*dateSpec)
 
 		if *timeOfDay != "" {
 			// Date + time specific running weather
-			display.DisplayDateTimeBasedRunningWeatherWithDistanceAndDust(weatherData, coord.Name, *dateSpec, *timeOfDay, dayOffset, distanceCategory, airQuality)
+			display.DisplayDateTimeBasedRunningWeatherFull(weatherData, coord.Name, *dateSpec, *timeOfDay, dayOffset, distanceCategory, airQuality, pollenData)
 		} else {
 			// Date specific running weather (full day)
-			// Get average dust level for the day
 			dustLevel := weather.GetCurrentDustLevel(airQuality)
-			display.DisplayDateBasedRunningWeatherWithDistanceAndDust(weatherData, coord.Name, *dateSpec, dayOffset, distanceCategory, dustLevel)
+			pollenLevel := weather.GetCurrentPollenLevel(pollenData)
+			display.DisplayDateBasedRunningWeatherFull(weatherData, coord.Name, *dateSpec, dayOffset, distanceCategory, dustLevel, pollenLevel)
 		}
 	} else if *timeOfDay != "" {
 		// Time-specific running weather
-		display.DisplayTimeBasedRunningWeatherWithDistanceAndDust(weatherData, coord.Name, *timeOfDay, requiredDays, distanceCategory, airQuality)
+		display.DisplayTimeBasedRunningWeatherFull(weatherData, coord.Name, *timeOfDay, requiredDays, distanceCategory, airQuality, pollenData)
 	} else {
 		// Current running weather
 		dustLevel := weather.GetCurrentDustLevel(airQuality)
-		display.DisplayRunningWeatherWithDistanceAndDust(weatherData, coord.Name, distanceCategory, dustLevel)
+		pollenLevel := weather.GetCurrentPollenLevel(pollenData)
+		display.DisplayRunningWeatherFull(weatherData, coord.Name, distanceCategory, dustLevel, pollenLevel)
 	}
 }

@@ -410,3 +410,75 @@ func ApplyDustPenalty(condition *types.RunningCondition, dustLevel *types.DustLe
 		condition.Recommendation = "天候が悪いため、ランニングは控えることをお勧めします"
 	}
 }
+
+// GetPollenPenalty calculates pollen penalty for running score
+func GetPollenPenalty(pollenLevel *types.PollenLevel) int {
+	if pollenLevel == nil {
+		return 0
+	}
+	switch pollenLevel.Level {
+	case 1:
+		return 5
+	case 2:
+		return 15
+	case 3:
+		return 30
+	case 4:
+		return 50
+	default:
+		return 0
+	}
+}
+
+// ApplyPollenPenalty applies pollen penalty to running condition
+func ApplyPollenPenalty(condition *types.RunningCondition, pollenLevel *types.PollenLevel, distanceCategory *types.DistanceCategory) {
+	if pollenLevel == nil || pollenLevel.Level == 0 {
+		return
+	}
+
+	multiplier := GetDistanceDustMultiplier(distanceCategory) // same multiplier as dust
+	penalty := int(float64(GetPollenPenalty(pollenLevel)) * multiplier)
+
+	condition.Score -= penalty
+	if condition.Score < 0 {
+		condition.Score = 0
+	}
+
+	// Warnings
+	if pollenLevel.Level >= 2 {
+		condition.Warnings = append(condition.Warnings, "🌿 花粉が飛散しています。マスク着用を推奨します")
+	}
+	if pollenLevel.Level >= 3 {
+		condition.Warnings = append(condition.Warnings, "🌿 花粉が多いです。目の保護にサングラスも検討してください")
+	}
+	if pollenLevel.Level >= 4 {
+		condition.Warnings = append(condition.Warnings, "⚠️ 花粉が非常に多いため、屋外運動は控えめにしてください")
+	}
+
+	// Clothing
+	if pollenLevel.Level >= 2 {
+		condition.Clothing = append(condition.Clothing, "花粉対策マスク")
+	}
+	if pollenLevel.Level >= 3 {
+		condition.Clothing = append(condition.Clothing, "花粉対策サングラス")
+	}
+
+	// Update level and recommendation
+	switch {
+	case condition.Score >= 80:
+		condition.Level = "最高"
+		condition.Recommendation = "ランニングに最適な天候です！"
+	case condition.Score >= 60:
+		condition.Level = "良好"
+		condition.Recommendation = "良好な天候です。ランニングを楽しんでください"
+	case condition.Score >= 40:
+		condition.Level = "普通"
+		condition.Recommendation = "注意事項を確認してからランニングしてください"
+	case condition.Score >= 20:
+		condition.Level = "注意"
+		condition.Recommendation = "警告事項があります。ランニングは控えめに"
+	default:
+		condition.Level = "危険"
+		condition.Recommendation = "天候が悪いため、ランニングは控えることをお勧めします"
+	}
+}
