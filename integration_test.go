@@ -33,7 +33,7 @@ func TestGetWeatherIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			weatherData, err := weather.GetWeather(tt.lat, tt.lon)
+			weatherData, err := weather.GetWeather(tt.lat, tt.lon, 1)
 			if err != nil {
 				t.Fatalf("API call failed: %v", err)
 			}
@@ -84,7 +84,7 @@ func TestGetWeatherWithInvalidCoordinates(t *testing.T) {
 	}
 
 	// Test with coordinates that are way out of range
-	_, err := weather.GetWeather(999.0, 999.0)
+	_, err := weather.GetWeather(999.0, 999.0, 1)
 	
 	// The API might still return data or give an error
 	// We mainly want to ensure our code doesn't crash
@@ -107,7 +107,7 @@ func TestFullWorkflowIntegration(t *testing.T) {
 		t.Fatalf("Failed to get coordinates for %s: %v", city, err)
 	}
 
-	weatherData, err := weather.GetWeather(coord.Lat, coord.Lon)
+	weatherData, err := weather.GetWeather(coord.Lat, coord.Lon, 1)
 	if err != nil {
 		t.Fatalf("Failed to get weather for %s: %v", city, err)
 	}

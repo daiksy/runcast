@@ -103,9 +103,55 @@ func ExtractDateBasedWeather(weather *types.WeatherData, dayOffset int) *types.W
 		return weather
 	}
 	
+	targetDate := weather.Daily.Time[dayOffset]
+
+	// Filter hourly data down to only the hours belonging to the target date,
+	// so that time-of-day extraction (e.g. morning/evening) for this date
+	// does not accidentally pick up another day's hours.
+	var hourlyTime []string
+	var hourlyTemp []float64
+	var hourlyApparentTemp []float64
+	var hourlyHumidity []int
+	var hourlyWindSpeed []float64
+	var hourlyWindDirection []float64
+	var hourlyPrecipitation []float64
+	var hourlyWeatherCode []int
+
+	for i, t := range weather.Hourly.Time {
+		if len(t) >= 10 && t[:10] == targetDate {
+			hourlyTime = append(hourlyTime, t)
+			hourlyTemp = append(hourlyTemp, safeFloat64At(weather.Hourly.Temperature, i))
+			hourlyApparentTemp = append(hourlyApparentTemp, safeFloat64At(weather.Hourly.ApparentTemp, i))
+			hourlyHumidity = append(hourlyHumidity, safeIntAt(weather.Hourly.Humidity, i))
+			hourlyWindSpeed = append(hourlyWindSpeed, safeFloat64At(weather.Hourly.WindSpeed, i))
+			hourlyWindDirection = append(hourlyWindDirection, safeFloat64At(weather.Hourly.WindDirection, i))
+			hourlyPrecipitation = append(hourlyPrecipitation, safeFloat64At(weather.Hourly.Precipitation, i))
+			hourlyWeatherCode = append(hourlyWeatherCode, safeIntAt(weather.Hourly.WeatherCode, i))
+		}
+	}
+
 	// Create new weather data with selected day
 	dateSpecificWeather := &types.WeatherData{
 		Current: weather.Current,
+		Hourly: struct {
+			Time          []string  `json:"time"`
+			Temperature   []float64 `json:"temperature_2m"`
+			ApparentTemp  []float64 `json:"apparent_temperature"`
+			Humidity      []int     `json:"relative_humidity_2m"`
+			WindSpeed     []float64 `json:"wind_speed_10m"`
+			WindDirection []float64 `json:"wind_direction_10m"`
+			Precipitation []float64 `json:"precipitation"`
+			WeatherCode   []int     `json:"weather_code"`
+		}{
+			Time:          hourlyTime,
+			Temperature:   hourlyTemp,
+			ApparentTemp:  hourlyApparentTemp,
+			Humidity:      hourlyHumidity,
+			WindSpeed:     hourlyWindSpeed,
+			WindDirection: hourlyWindDirection,
+			Precipitation: hourlyPrecipitation,
+			WeatherCode:   hourlyWeatherCode,
+		},
 		Daily: struct {
 			Time                        []string  `json:"time"`
 			TemperatureMax              []float64 `json:"temperature_2m_max"`
@@ -139,9 +185,8 @@ func ExtractDateBasedWeather(weather *types.WeatherData, dayOffset int) *types.W
 			PrecipitationHours:          safeFloat64Slice(weather.Daily.PrecipitationHours, dayOffset),
 			PrecipitationProbabilityMax: safeFloat64Slice(weather.Daily.PrecipitationProbabilityMax, dayOffset),
 		},
-		Hourly: weather.Hourly,
 	}
-	
+
 	return dateSpecificWeather
 }
 
@@ -197,6 +242,22 @@ func safeStringSlice(slice []string, index int) []string {
 		return []string{slice[index]}
 	}
 	return []string{}
+}
+
+// safeFloat64At safely accesses a float64 slice element, returning 0 if out of range
+func safeFloat64At(slice []float64, index int) float64 {
+	if index >= 0 && index < len(slice) {
+		return slice[index]
+	}
+	return 0
+}
+
+// safeIntAt safely accesses an int slice element, returning 0 if out of range
+func safeIntAt(slice []int, index int) int {
+	if index >= 0 && index < len(slice) {
+		return slice[index]
+	}
+	return 0
 }
 
 // safeFloat64Slice safely accesses float64 slice and returns slice with single element or empty slice

@@ -75,10 +75,15 @@ func GetCityCoordinate(city string) (*types.CityCoordinate, error) {
 	return nil, fmt.Errorf("都市が見つかりません: %s\n対応都市: %v", city, allLocations)
 }
 
-// GetWeather fetches weather data from API
-func GetWeather(lat, lon float64) (*types.WeatherData, error) {
-	forecastDays := 1
-	
+// GetWeather fetches weather data from API.
+// days specifies how many forecast days to request (minimum 1), so that
+// date-specific queries (e.g. tomorrow, day-after-tomorrow) have data available.
+func GetWeather(lat, lon float64, days int) (*types.WeatherData, error) {
+	forecastDays := days
+	if forecastDays < 1 {
+		forecastDays = 1
+	}
+
 	var url string
 	currentParams := "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation,dewpoint_2m"
 	dailyParams := "temperature_2m_max,temperature_2m_min,weather_code,wind_speed_10m_max,precipitation_sum"
