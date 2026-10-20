@@ -114,7 +114,7 @@ func main() {
 	}
 	
 	// Get weather data
-	weatherData, err := weather.GetWeather(coord.Lat, coord.Lon)
+	weatherData, err := weather.GetWeather(coord.Lat, coord.Lon, requiredDays)
 	if err != nil {
 		log.Fatal(err)
 	}
